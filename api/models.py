@@ -85,7 +85,7 @@ class User(AbstractBaseUser):
 
 
 class Department(models.Model):
-    name = models.CharField(max_length=255, verbose_name="Відділ")
+    name = models.CharField(max_length=255, unique=True, verbose_name="Відділ")
     head = models.ForeignKey(
         "User",
         on_delete=models.SET_NULL,

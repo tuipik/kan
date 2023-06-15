@@ -23,7 +23,7 @@ from .serializers import (
     TaskSerializer,
     CommentSerializer,
     TimeTrackerSerializer,
-    UserUpdateSerializer,
+    UserUpdateSerializer, DepartmentCreateSerializer,
 )
 from .utils import ResponseInfo
 
@@ -175,7 +175,9 @@ class ChangePasswordView(APIView):
 
 class DepartmentApiViewSet(PermissionPolicyMixin, ResponseModelViewSet):
     queryset = Department.objects.all()
-    serializer_classes = {}
+    serializer_classes = {
+        "create": DepartmentCreateSerializer,
+    }
     default_serializer_class = DepartmentSerializer
     authentication_classes = [SessionAuthentication, BasicAuthentication]
     permission_classes = [

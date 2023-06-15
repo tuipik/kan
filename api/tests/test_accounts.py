@@ -6,7 +6,7 @@ from conftest import default_user_data
 
 
 @pytest.mark.django_db
-def test_CRUD_accounts_ok(api_client, super_user) -> None:
+def test_CRUD_accounts_ok(api_client, super_user):
     default_user_num = 2
     all_users_num = default_user_num + 1
 

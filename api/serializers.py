@@ -3,6 +3,12 @@ from rest_framework import serializers
 from .models import User, Department, Task, Comment, TimeTracker
 
 
+class DepartmentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ["id", "name"]
+
+
 class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
