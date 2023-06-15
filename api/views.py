@@ -23,6 +23,7 @@ from .serializers import (
     TaskSerializer,
     CommentSerializer,
     TimeTrackerSerializer,
+    UserUpdateSerializer,
 )
 from .utils import ResponseInfo
 
@@ -83,9 +84,8 @@ class ResponseModelViewSet(ModelViewSet):
         response_data = super(ResponseModelViewSet, self).destroy(
             request, *args, **kwargs
         )
-        data_list = self.data_to_list(response_data.data)
-        self.response_format["data"] = data_list
-        self.response_format["data_len"] = len(data_list)
+        self.response_format["data"] = []
+        self.response_format["data_len"] = 0
         self.response_format["success"] = True
         self.response_format["message"] = "Deleted"
         return Response(self.response_format)
@@ -111,6 +111,8 @@ class UserViewSet(ResponseModelViewSet):
     permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_classes = {
         "create": UserCreateSerializer,
+        "update": UserUpdateSerializer,
+        "partial_update": UserUpdateSerializer,
     }
     default_serializer_class = UserDetailSerializer
     filter_backends = [DjangoFilterBackend]
@@ -118,7 +120,6 @@ class UserViewSet(ResponseModelViewSet):
 
 
 class LoginView(APIView):
-
     def post(self, request):
         if "username" not in request.data or "password" not in request.data:
             raise BadRequest("Credentials missing")
@@ -142,7 +143,6 @@ class LoginView(APIView):
 
 
 class LogoutView(APIView):
-
     def post(self, request):
         try:
             user = request.user.get_username()
@@ -214,7 +214,7 @@ class TimeTrackerViewSet(ResponseModelViewSet):
     serializer_classes = {}
     default_serializer_class = TimeTrackerSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['task', 'user', 'hours', 'start_time']
+    filterset_fields = ["task", "user", "hours", "start_time"]
 
 
 class CommentViewSet(ResponseModelViewSet):
@@ -224,4 +224,4 @@ class CommentViewSet(ResponseModelViewSet):
     serializer_classes = {}
     default_serializer_class = CommentSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['task', 'user', 'created']
+    filterset_fields = ["task", "user", "created"]

@@ -9,10 +9,14 @@ class DepartmentSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "head"]
 
     def save(self):
-        if user_id := self.initial_data.get('head'):
+        if user_id := self.initial_data.get("head"):
             user = User.objects.get(pk=user_id)
             if not user.department or not user.department_id == self.instance.id:
-                raise serializers.ValidationError({"head": "To be the head of department user should be the member of department"})
+                raise serializers.ValidationError(
+                    {
+                        "head": "To be the head of department user should be the member of department"
+                    }
+                )
         super().save()
 
 
@@ -22,11 +26,11 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class UserDetailSerializer(serializers.ModelSerializer):
+class UserBaseSerializer(serializers.ModelSerializer):
     department = serializers.PrimaryKeyRelatedField(
         queryset=Department.objects.all(), allow_null=True, many=False, label="Відділ"
     )
-    comments = CommentSerializer(source="user_comments", many=True)
+    comments = CommentSerializer(source="user_comments", allow_null=True, many=True)
 
     class Meta:
         model = User
@@ -36,17 +40,33 @@ class UserDetailSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "department",
-            "is_admin",
-            "comments",
         ]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["department"] = DepartmentSerializer(instance.department).data
+        if isinstance(instance, User):
+            representation["department"] = DepartmentSerializer(
+                instance.department
+            ).data
         return representation
 
 
-class UserCreateSerializer(serializers.ModelSerializer):
+class UserDetailSerializer(UserBaseSerializer):
+    class Meta(UserBaseSerializer.Meta):
+        fields = UserBaseSerializer.Meta.fields + [
+            "is_admin",
+            "comments",
+        ]
+
+
+class UserUpdateSerializer(UserBaseSerializer):
+    class Meta(UserBaseSerializer.Meta):
+        fields = UserBaseSerializer.Meta.fields + [
+            "is_admin",
+        ]
+
+
+class UserCreateSerializer(UserBaseSerializer):
     password2 = serializers.CharField(
         style={"input_type": "password"}, write_only=True, label="Підтвердження пароля"
     )
@@ -54,16 +74,10 @@ class UserCreateSerializer(serializers.ModelSerializer):
         queryset=Department.objects.all(), allow_null=True, many=False, label="Відділ"
     )
 
-    class Meta:
-        model = User
-        fields = [
-            "id",
-            "username",
-            "first_name",
-            "last_name",
+    class Meta(UserBaseSerializer.Meta):
+        fields = UserBaseSerializer.Meta.fields + [
             "password",
             "password2",
-            "department",
         ]
         extra_kwargs = {"password": {"write_only": True, "label": "Пароль"}}
 
@@ -81,11 +95,6 @@ class UserCreateSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation["department"] = DepartmentSerializer(instance.department).data
-        return representation
 
 
 class PasswordChangeSerializer(serializers.Serializer):
@@ -145,7 +154,9 @@ class TaskSerializer(serializers.ModelSerializer):
         source="get_status_display", read_only=True
     )
     comments = CommentSerializer(source="task_comments", many=True, read_only=True)
-    time_trackers = TimeTrackerSerializer(source="time_tracker_tasks", many=True, read_only=True)
+    time_trackers = TimeTrackerSerializer(
+        source="time_tracker_tasks", many=True, read_only=True
+    )
 
     class Meta:
         model = Task
@@ -172,5 +183,3 @@ class TaskSerializer(serializers.ModelSerializer):
         representation["user"] = UserDetailSerializer(instance.user).data
         representation["department"] = DepartmentSerializer(instance.department).data
         return representation
-
-

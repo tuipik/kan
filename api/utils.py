@@ -1,22 +1,5 @@
 from drf_standardized_errors.formatter import ExceptionFormatter
 from drf_standardized_errors.types import ErrorResponse
-from rest_framework.utils.serializer_helpers import ReturnList
-
-
-def make_resp(success=False, accounts=None, msg=None, errors=None):
-    if accounts is None:
-        accounts = []
-    if accounts and type(accounts) not in (list, ReturnList):
-        accounts = [accounts]
-    if errors:
-        errors = f"{errors}"
-
-    return {
-        "success": success,
-        "accounts": accounts,
-        "errors": errors,
-        "msg": msg,
-    }
 
 
 class ResponseInfo(object):

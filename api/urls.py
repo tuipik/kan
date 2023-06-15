@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from rest_framework.routers import DefaultRouter
 
@@ -21,6 +21,7 @@ router.register(r"time_trackers", TimeTrackerViewSet, basename="time_tracker")
 router.register(r"comments", CommentViewSet, basename="comment")
 
 urlpatterns = [
+    path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),    # TODO: should be deleted
     path("accounts/login", LoginView.as_view(), name="login"),
     path("accounts/logout", LogoutView.as_view(), name="logout"),
     path(
