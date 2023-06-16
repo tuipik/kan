@@ -135,6 +135,7 @@ class TimeTrackerSerializer(serializers.ModelSerializer):
     class Meta:
         model = TimeTracker
         fields = [
+            "id",
             "task",
             "user",
             "status",
