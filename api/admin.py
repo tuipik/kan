@@ -63,7 +63,6 @@ class UserAdmin(BaseUserAdmin):
         "last_name",
         "department",
         "is_active",
-        "is_head_department",
     )
     list_filter = ("department", "is_active")
     fieldsets = (

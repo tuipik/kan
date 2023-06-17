@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
 from django.db import models
 
@@ -99,23 +101,25 @@ class Department(models.Model):
         return self.name
 
 
+class YearQuarter(models.IntegerChoices):
+    FIRST = 1, "Перший"
+    SECOND = 2, "Другий"
+    THIRD = 3, "Третій"
+    FOURTH = 4, "Четвертий"
+
+
+class TaskStatuses(models.TextChoices):
+    WAITING = "WAITING", "Очікування"
+    IN_PROGRESS = "IN_PROGRESS", "В роботі"
+    STOPPED = "STOPPED", "Призупинено"
+    DONE = "DONE", "Завершено"
+    CORRECTING = "CORRECTING", "Корректура"
+    CORRECTING_QUEUE = "CORRECTING_QUEUE", "Черга корректури"
+    OTK = "OTK", "ОТК"
+    OTK_QUEUE = "OTK_QUEUE", "Черга ОТК"
+
+
 class Task(models.Model):
-    class YearQuarter(models.IntegerChoices):
-        FIRST = 1, "Перший"
-        SECOND = 2, "Другий"
-        THIRD = 3, "Третій"
-        FOURTH = 4, "Четвертий"
-
-    class Statuses(models.TextChoices):
-        WAITING = "WAITING", "Очікування"
-        IN_PROGRESS = "IN_PROGRESS", "В роботі"
-        STOPPED = "STOPPED", "Призупинено"
-        DONE = "DONE", "Завершено"
-        CORRECTING = "CORRECTING", "Корректура"
-        CORRECTING_QUEUE = "CORRECTING_QUEUE", "Черга корректури"
-        OTK = "OTK", "ОТК"
-        OTK_QUEUE = "OTK_QUEUE", "Черга ОТК"
-
     name = models.CharField(max_length=255, verbose_name="Назва")
     change_time_estimate = models.PositiveIntegerField(
         default=0, verbose_name="Час на оновлення"
@@ -128,15 +132,15 @@ class Task(models.Model):
     )
     status = models.CharField(
         max_length=50,
-        choices=Statuses.choices,
-        default=Statuses.WAITING,
+        choices=TaskStatuses.choices,
+        default=TaskStatuses.WAITING,
         verbose_name="Статус",
     )
     created = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
     updated = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
     done = models.DateTimeField(blank=True, null=True, verbose_name="Завершено")
     quarter = models.IntegerField(
-       choices=YearQuarter.choices, blank=True, verbose_name="Квартал"
+        choices=YearQuarter.choices, blank=True, verbose_name="Квартал"
     )
     category = models.CharField(max_length=255, verbose_name="Категорія")
     user = models.ForeignKey(
@@ -160,37 +164,77 @@ class Task(models.Model):
         return self.name
 
 
-class TimeTracker(models.Model):
-    class Statuses(models.TextChoices):
-        IN_PROGRESS = "IN_PROGRESS", "В роботі"
-        STOPPED = "STOPPED", "Призупинено"
-        CANCELED = "CANCELED", "Відмінено"
-        DONE = "DONE", "Завершено"
+class TimeTrackerStatuses(models.TextChoices):
+    IN_PROGRESS = "IN_PROGRESS", "В роботі"
+    DONE = "DONE", "Завершено"
 
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='time_tracker_tasks', verbose_name='Задача')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='time_tracker_users', verbose_name='Виконавець')
-    start_time = models.DateTimeField(verbose_name='Час початку', auto_now_add=True)
-    end_time = models.DateTimeField(verbose_name='Час закінчення', null=True, blank=True)
-    hours = models.IntegerField(verbose_name='Час виконання', default=0, blank=True)
+
+class TimeTracker(models.Model):
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="time_tracker_tasks",
+        verbose_name="Задача",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="time_tracker_users",
+        verbose_name="Виконавець",
+    )
+    start_time = models.DateTimeField(verbose_name="Час початку", auto_now_add=True)
+    end_time = models.DateTimeField(
+        verbose_name="Час закінчення", null=True, blank=True
+    )
+    hours = models.IntegerField(verbose_name="Час виконання", default=0, blank=True)
     status = models.CharField(
         max_length=50,
-        choices=Statuses.choices,
-        default=Statuses.IN_PROGRESS,
+        choices=TimeTrackerStatuses.choices,
+        default=TimeTrackerStatuses.IN_PROGRESS,
         verbose_name="Статус",
     )
 
     def __str__(self):
-        return f'{self.task.name} - {self.get_status_display()}'
+        return f"{self.task.name} - {self.get_status_display()}"
+
+    @property
+    def max_hours_per_day(self) -> int:
+        return 8  # робочий час не може бути більше 8 годин
+
+    @property
+    def rest_time(self) -> int:
+        return 1
+
+    def change_status(self):
+        time_now = datetime.now(timezone.utc)
+        time_delta = round((time_now - self.start_time).total_seconds() / 60 / 60)
+        if time_delta > self.max_hours_per_day:
+            time_delta = self.max_hours_per_day
+        elif time_delta > 4:
+            time_delta -= self.rest_time  # віднімаємо годуну обіду
+        self.end_time = time_now
+        self.hours = time_delta
+        self.save()
 
 
 class Comment(models.Model):
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='task_comments', verbose_name='Задача')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_comments', verbose_name='Виконавець')
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="task_comments",
+        verbose_name="Задача",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="user_comments",
+        verbose_name="Виконавець",
+    )
     body = models.TextField()
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['created']
+        ordering = ["created"]
 
     def __str__(self):
-        return f'{self.user} commented {self.created}'
+        return f"{self.user} commented {self.created}"

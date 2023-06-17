@@ -146,6 +146,11 @@ class TimeTrackerSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ("start_time",)
 
+    def save(self, **kwargs):
+        if self.validated_data.get("status", "IN_PROGRESS") != "IN_PROGRESS":
+            self.instance.change_status()
+        super().save()
+
 
 class TaskSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(
