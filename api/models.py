@@ -163,6 +163,17 @@ class Task(models.Model):
     def __str__(self):
         return self.name
 
+    def start_time_tracker(self):
+        data = {
+            "task": self,
+            "user": self.user,
+            "status": TimeTrackerStatuses.IN_PROGRESS,
+        }
+        if TimeTracker.objects.filter(**data).count():
+            return
+        del data["status"]
+        return TimeTracker.objects.create(**data)
+
 
 class TimeTrackerStatuses(models.TextChoices):
     IN_PROGRESS = "IN_PROGRESS", "В роботі"
@@ -205,7 +216,11 @@ class TimeTracker(models.Model):
     def rest_time(self) -> int:
         return 1
 
-    def change_status(self):
+    @property
+    def task_status(self):
+        return self.task.status
+
+    def change_status_done(self):
         time_now = datetime.now(timezone.utc)
         time_delta = round((time_now - self.start_time).total_seconds() / 60 / 60)
         if time_delta > self.max_hours_per_day:
@@ -214,6 +229,7 @@ class TimeTracker(models.Model):
             time_delta -= self.rest_time  # віднімаємо годуну обіду
         self.end_time = time_now
         self.hours = time_delta
+        self.status = TimeTrackerStatuses.DONE
         self.save()
 
 

@@ -3,7 +3,7 @@ import datetime
 import pytest
 from rest_framework.reverse import reverse
 
-from api.models import TimeTrackerStatuses, TimeTracker
+from api.models import TimeTrackerStatuses, TimeTracker, TaskStatuses
 from conftest import create_user_with_department, create_task, create_time_tracker
 
 
@@ -61,7 +61,10 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
     )
     assert not all_time_trackers.data.get("data")[0].get("end_time")
     assert all_time_trackers.data.get("data")[0].get("hours") == 0
-    assert all_time_trackers.data.get("data")[0].get("status") == TimeTrackerStatuses.IN_PROGRESS
+    assert (
+        all_time_trackers.data.get("data")[0].get("status")
+        == TimeTrackerStatuses.IN_PROGRESS
+    )
 
     # test put
     time_tracker_obj_id = all_time_trackers.data.get("data")[0].get("id")
@@ -84,7 +87,9 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
     ) == time_tracker_data.get("status")
 
     # test patch
-    TimeTracker.objects.filter(pk=time_tracker_obj_id).update(status=TimeTrackerStatuses.IN_PROGRESS)
+    TimeTracker.objects.filter(pk=time_tracker_obj_id).update(
+        status=TimeTrackerStatuses.IN_PROGRESS
+    )
     new_time_tracker_status = {"status": TimeTrackerStatuses.DONE}
     result = api_client.patch(
         reverse("time_tracker-detail", kwargs={"pk": time_tracker_obj_id}),
@@ -119,56 +124,87 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
 def test_change_status_less_4_hours(api_client, super_user, freezer):
     user, department = create_user_with_department()
     task = create_task(user=user, department=department)
-    time_tracker = create_time_tracker(task=task, user=user)
 
     api_client.force_authenticate(super_user)
+
+    # task IN_PROGRESS creates time_tracker
+    api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.id}),
+        data={"status": TaskStatuses.IN_PROGRESS},
+    )
+
     hours_passed = 3
     freezer.move_to(datetime.datetime.now() + datetime.timedelta(hours=hours_passed))
 
-    result = api_client.patch(
-        reverse("time_tracker-detail", kwargs={"pk": time_tracker.id}),
-        data={"status": TimeTrackerStatuses.DONE},
+    # task DONE updates time_tracker with status DONE
+    api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.id}),
+        data={"status": TaskStatuses.DONE},
     )
-    assert result.data.get("success")
-    assert result.data.get("data")[0].get("hours") == hours_passed
-    assert result.data.get("data")[0].get("end_time")
+    time_trackers = api_client.get(reverse("time_tracker-list"))
+
+    assert time_trackers.data.get("data")[0].get("status") == TimeTrackerStatuses.DONE
+    assert time_trackers.data.get("data")[0].get("hours") == hours_passed
+    assert time_trackers.data.get("data")[0].get("end_time")
 
 
 @pytest.mark.django_db
 def test_change_status_more_4_hours(api_client, super_user, freezer):
     user, department = create_user_with_department()
     task = create_task(user=user, department=department)
-    time_tracker = create_time_tracker(task=task, user=user)
 
     api_client.force_authenticate(super_user)
+
+    # task IN_PROGRESS creates time_tracker
+    api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.id}),
+        data={"status": TaskStatuses.IN_PROGRESS},
+    )
+
     hours_passed = 5
     freezer.move_to(datetime.datetime.now() + datetime.timedelta(hours=hours_passed))
 
-    result = api_client.patch(
-        reverse("time_tracker-detail", kwargs={"pk": time_tracker.id}),
-        data={"status": TimeTrackerStatuses.DONE},
+    # task DONE updates time_tracker with status DONE
+    api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.id}),
+        data={"status": TaskStatuses.DONE},
     )
-    assert result.data.get("success")
+    time_trackers = api_client.get(reverse("time_tracker-list"))
+
+    assert time_trackers.data.get("data")[0].get("status") == TimeTrackerStatuses.DONE
     assert (
-        result.data.get("data")[0].get("hours") == hours_passed - time_tracker.rest_time
+        time_trackers.data.get("data")[0].get("hours")
+        == hours_passed - TimeTracker().rest_time
     )
-    assert result.data.get("data")[0].get("end_time")
+    assert time_trackers.data.get("data")[0].get("end_time")
 
 
 @pytest.mark.django_db
 def test_change_status_more_8_hours(api_client, super_user, freezer):
     user, department = create_user_with_department()
     task = create_task(user=user, department=department)
-    time_tracker = create_time_tracker(task=task, user=user)
 
     api_client.force_authenticate(super_user)
+
+    # task IN_PROGRESS creates time_tracker
+    api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.id}),
+        data={"status": TaskStatuses.IN_PROGRESS},
+    )
+
     hours_passed = 10
     freezer.move_to(datetime.datetime.now() + datetime.timedelta(hours=hours_passed))
 
-    result = api_client.patch(
-        reverse("time_tracker-detail", kwargs={"pk": time_tracker.id}),
-        data={"status": TimeTrackerStatuses.DONE},
+    # task DONE updates time_tracker with status DONE
+    api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.id}),
+        data={"status": TaskStatuses.DONE},
     )
-    assert result.data.get("success")
-    assert result.data.get("data")[0].get("hours") == time_tracker.max_hours_per_day
-    assert result.data.get("data")[0].get("end_time")
+    time_trackers = api_client.get(reverse("time_tracker-list"))
+
+    assert time_trackers.data.get("data")[0].get("status") == TimeTrackerStatuses.DONE
+    assert (
+        time_trackers.data.get("data")[0].get("hours")
+        == TimeTracker().max_hours_per_day
+    )
+    assert time_trackers.data.get("data")[0].get("end_time")

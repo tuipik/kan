@@ -1,6 +1,15 @@
 from rest_framework import serializers
 
-from .models import User, Department, Task, Comment, TimeTracker
+from .models import (
+    User,
+    Department,
+    Task,
+    Comment,
+    TimeTracker,
+    TimeTrackerStatuses,
+    TaskStatuses,
+)
+from .utils import TASK_STATUSES_PROGRESS, TASK_STATUSES_IDLE
 
 
 class DepartmentCreateSerializer(serializers.ModelSerializer):
@@ -146,11 +155,6 @@ class TimeTrackerSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ("start_time",)
 
-    def save(self, **kwargs):
-        if self.validated_data.get("status", "IN_PROGRESS") != "IN_PROGRESS":
-            self.instance.change_status()
-        super().save()
-
 
 class TaskSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(
@@ -189,6 +193,32 @@ class TaskSerializer(serializers.ModelSerializer):
             "done",
             "comments",
         ]
+
+    def save(self, **kwargs):
+        if not self.instance:
+            pass
+
+        elif (
+            self.instance.status in TASK_STATUSES_PROGRESS
+            and self.validated_data.get("status") in TASK_STATUSES_IDLE
+        ):
+            time_tracker = self.instance.time_tracker_tasks.get(
+                task__id=self.instance.id, status=TimeTrackerStatuses.IN_PROGRESS
+            )
+            time_tracker.change_status_done()
+
+        elif (
+            self.instance.status in TASK_STATUSES_PROGRESS
+            and self.validated_data.get("status") in TASK_STATUSES_PROGRESS
+        ):
+            raise ValueError(
+                f"Треба спочатку змінити статус на один з: {[status.label for status in TASK_STATUSES_IDLE]}"
+            )
+
+        else:
+            self.instance.start_time_tracker()
+
+        super().save()
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)

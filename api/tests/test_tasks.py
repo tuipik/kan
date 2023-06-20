@@ -1,6 +1,9 @@
 import pytest
 from rest_framework.reverse import reverse
 
+from api.models import TaskStatuses, TimeTracker
+from conftest import create_user_with_department, create_task
+
 
 @pytest.mark.django_db
 def test_CRUD_tasks_ok(api_client, super_user):
@@ -80,3 +83,36 @@ def test_CRUD_tasks_ok(api_client, super_user):
 
     all_tasks = api_client.get(reverse("task-list"))
     assert all_tasks.data.get("data_len") == 0
+
+
+@pytest.mark.django_db
+def test_create_time_tracker_on_change_task_in_progress(
+    api_client, super_user, freezer
+):
+    api_client.force_authenticate(super_user)
+    user, department = create_user_with_department()
+    task = create_task(user=user, department=department)
+    api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.id}),
+        data={"status": TaskStatuses.IN_PROGRESS},
+    )
+    # the second run update with status IN_PROGRESS is to test, that only 1 TimeTracker can be IN_PROGRESS at one time
+    # and should change status to idle first
+    with pytest.raises(Exception) as exc_info:
+        api_client.patch(
+            reverse("task-detail", kwargs={"pk": task.id}),
+            data={"status": TaskStatuses.IN_PROGRESS},
+        )
+    assert exc_info.type == ValueError
+
+    time_trackers_count = TimeTracker.objects.count()
+    time_trackers = TimeTracker.objects.all()
+    assert time_trackers_count == 1
+    assert time_trackers[0].task.id == task.id
+    assert time_trackers[0].user.id == user.id
+    assert time_trackers[0].status == TaskStatuses.IN_PROGRESS
+
+    api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.id}),
+        data={"status": TaskStatuses.WAITING},
+    )
