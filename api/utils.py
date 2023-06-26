@@ -42,6 +42,10 @@ class KanExceptionFormatter(ExceptionFormatter):
 
 
 def update_time_trackers_hours():
+    """
+    Start in cron once an hour to update time-trackers hours
+    """
     time_trackers = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS)
-    for tracker in time_trackers:
-        tracker.update_progress_hours()
+    if time_trackers:
+        for tracker in time_trackers:
+            tracker.update_progress_hours()
