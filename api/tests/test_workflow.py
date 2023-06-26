@@ -162,8 +162,8 @@ def test_aggregate_status_time_done(api_client, super_user, freezer):
     user_data = default_user_data(3)
     user_executant_1, department = create_user_with_department(next(user_data))
     user_executant_2, department = create_user_with_department(next(user_data))
-    task_1 = create_task(department=department, name='M-36-23-B')
-    task_2 = create_task(department=department, name='M-36-101-A')
+    task_1 = create_task(department=department, name="M-36-23-B")
+    task_2 = create_task(department=department, name="M-36-101-A")
 
     api_client.force_authenticate(super_user)
     task_1_updated = api_client.patch(
@@ -201,7 +201,10 @@ def test_aggregate_status_time_done(api_client, super_user, freezer):
 
     task_2_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task_2.id}),
-        data={"user": task_2_updated.data.get("data")[0].get("user").get("id"), "status": TaskStatuses.STOPPED},
+        data={
+            "user": task_2_updated.data.get("data")[0].get("user").get("id"),
+            "status": TaskStatuses.STOPPED,
+        },
         format="json",
     )
 
@@ -209,7 +212,10 @@ def test_aggregate_status_time_done(api_client, super_user, freezer):
     freezer.move_to(datetime.datetime.now() + datetime.timedelta(hours=hours_passed))
     task_2_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task_2.id}),
-        data={"user": task_2_updated.data.get("data")[0].get("user").get("id"), "status": TaskStatuses.IN_PROGRESS},
+        data={
+            "user": task_2_updated.data.get("data")[0].get("user").get("id"),
+            "status": TaskStatuses.IN_PROGRESS,
+        },
         format="json",
     )
 

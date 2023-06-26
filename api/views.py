@@ -12,7 +12,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from .filters import UserFilter, TaskFilter, TimeTrackerFilter, CommentFilter, DepartmentFilter
+from .filters import (
+    UserFilter,
+    TaskFilter,
+    TimeTrackerFilter,
+    CommentFilter,
+    DepartmentFilter,
+)
 from .kan_permissions import PermissionPolicyMixin
 from .models import User, Department, Task, Comment, TimeTracker
 from .serializers import (
@@ -23,7 +29,8 @@ from .serializers import (
     TaskSerializer,
     CommentSerializer,
     TimeTrackerSerializer,
-    UserUpdateSerializer, DepartmentCreateSerializer,
+    UserUpdateSerializer,
+    DepartmentCreateSerializer,
 )
 from .utils import ResponseInfo
 
@@ -211,7 +218,12 @@ class TaskViewSet(ResponseModelViewSet):
     filterset_class = TaskFilter
 
     def get_permissions(self):
-        if self.action in ['list', 'retrieve', 'update', 'partial_update', ]:
+        if self.action in [
+            "list",
+            "retrieve",
+            "update",
+            "partial_update",
+        ]:
             permission_classes = [IsAuthenticated]
         else:
             permission_classes = [IsAuthenticated, IsAdminUser]

@@ -122,7 +122,7 @@ def test_create_time_tracker_on_change_task_in_progress(
 
 
 @pytest.mark.django_db
-@pytest.mark.freeze_time('2023-06-05 09:00:00')
+@pytest.mark.freeze_time("2023-06-05 09:00:00")
 def test_change_status_less_4_hours(api_client, super_user, freezer):
     user_data = default_user_data(1)
     user, department = create_user_with_department(next(user_data))
@@ -152,7 +152,7 @@ def test_change_status_less_4_hours(api_client, super_user, freezer):
 
 
 @pytest.mark.django_db
-@pytest.mark.freeze_time('2023-06-05 09:00:00')
+@pytest.mark.freeze_time("2023-06-05 09:00:00")
 def test_change_status_more_4_hours(api_client, super_user, freezer):
     user_data = default_user_data(1)
     user, department = create_user_with_department(next(user_data))
@@ -177,15 +177,12 @@ def test_change_status_more_4_hours(api_client, super_user, freezer):
     time_trackers = api_client.get(reverse("time_tracker-list"))
 
     assert time_trackers.data.get("data")[0].get("status") == TimeTrackerStatuses.DONE
-    assert (
-        time_trackers.data.get("data")[0].get("hours")
-        == hours_passed - launch_time
-    )
+    assert time_trackers.data.get("data")[0].get("hours") == hours_passed - launch_time
     assert time_trackers.data.get("data")[0].get("end_time")
 
 
 @pytest.mark.django_db
-@pytest.mark.freeze_time('2023-06-05 09:00:00')
+@pytest.mark.freeze_time("2023-06-05 09:00:00")
 def test_change_status_more_8_hours(api_client, super_user, freezer):
     user_data = default_user_data(1)
     user, department = create_user_with_department(next(user_data))
@@ -210,8 +207,5 @@ def test_change_status_more_8_hours(api_client, super_user, freezer):
     time_trackers = api_client.get(reverse("time_tracker-list"))
 
     assert time_trackers.data.get("data")[0].get("status") == TimeTrackerStatuses.DONE
-    assert (
-        time_trackers.data.get("data")[0].get("hours")
-        == workday_time
-    )
+    assert time_trackers.data.get("data")[0].get("hours") == workday_time
     assert time_trackers.data.get("data")[0].get("end_time")

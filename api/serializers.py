@@ -207,8 +207,8 @@ class TaskSerializer(serializers.ModelSerializer):
             return self.instance
 
         if (
-                self.instance.status in TASK_STATUSES_PROGRESS
-                and self.validated_data.get("status") in TASK_STATUSES_PROGRESS
+            self.instance.status in TASK_STATUSES_PROGRESS
+            and self.validated_data.get("status") in TASK_STATUSES_PROGRESS
         ):
             raise ValueError(
                 f"Треба спочатку змінити статус на один з: {[status.label for status in TASK_STATUSES_IDLE]}"
