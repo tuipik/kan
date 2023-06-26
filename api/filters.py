@@ -1,6 +1,6 @@
 import django_filters
 
-from api.models import User, Task, TimeTracker, Comment
+from api.models import User, Task, TimeTracker, Comment, Department
 
 
 class UserFilter(django_filters.FilterSet):
@@ -20,7 +20,7 @@ class DepartmentFilter(django_filters.FilterSet):
     name = django_filters.CharFilter(field_name="name", lookup_expr="icontains")
 
     class Meta:
-        model = User
+        model = Department
         fields = ["name"]
 
 
@@ -59,6 +59,7 @@ class TimeTrackerFilter(django_filters.FilterSet):
             "end_time": ["exact", "gt", "gte", "lt", "lte"],
             "hours": ["exact", "gt", "gte", "lt", "lte"],
             "status": ["exact"],
+            "task_status": ["exact"],
         }
 
 

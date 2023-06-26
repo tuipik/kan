@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
-from .filters import UserFilter, TaskFilter
+from .filters import UserFilter, TaskFilter, TimeTrackerFilter, CommentFilter, DepartmentFilter
 from .kan_permissions import PermissionPolicyMixin
 from .models import User, Department, Task, Comment, TimeTracker
 from .serializers import (
@@ -197,16 +197,25 @@ class DepartmentApiViewSet(PermissionPolicyMixin, ResponseModelViewSet):
             IsAdminUser,
         ],
     }
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = DepartmentFilter
 
 
 class TaskViewSet(ResponseModelViewSet):
     queryset = Task.objects.all()
     authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    # permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_classes = {}
     default_serializer_class = TaskSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = TaskFilter
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve', 'update', 'partial_update', ]:
+            permission_classes = [IsAuthenticated]
+        else:
+            permission_classes = [IsAuthenticated, IsAdminUser]
+        return [permission() for permission in permission_classes]
 
 
 class TimeTrackerViewSet(ResponseModelViewSet):
@@ -216,7 +225,7 @@ class TimeTrackerViewSet(ResponseModelViewSet):
     serializer_classes = {}
     default_serializer_class = TimeTrackerSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["task", "user", "hours", "start_time"]
+    filterset_class = TimeTrackerFilter
 
 
 class CommentViewSet(ResponseModelViewSet):
@@ -226,4 +235,4 @@ class CommentViewSet(ResponseModelViewSet):
     serializer_classes = {}
     default_serializer_class = CommentSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["task", "user", "created"]
+    filterset_class = CommentFilter

@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.contrib.auth.models import Group
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
 from django.core.exceptions import ValidationError
@@ -139,11 +138,11 @@ class TaskAdmin(admin.ModelAdmin):
     user_link.short_description = "Виконавець"
 
 
-class TimeCheckerAdmin(admin.ModelAdmin):
-    list_display = ("task", "status", "user_link", "start_time", "end_time", "hours")
-    list_filter = ("task", "user", "status")
+class TimeTrackerAdmin(admin.ModelAdmin):
+    list_display = ("task", "status", "user_link", "start_time", "end_time", "hours", "task_status")
+    list_filter = ("task", "user", "status", "task_status")
     search_fields = ("task", "user", "status")
-    ordering = ("status", "task", "user")
+    ordering = ("status", "task", "user", "task_status")
 
     class Meta:
         model = TimeTracker
@@ -165,5 +164,5 @@ class CommentAdmin(admin.ModelAdmin):
 admin.site.register(Department, DepartmentAdmin)
 admin.site.register(User, UserAdmin)
 admin.site.register(Task, TaskAdmin)
-admin.site.register(TimeTracker, TimeCheckerAdmin)
+admin.site.register(TimeTracker, TimeTrackerAdmin)
 admin.site.register(Comment, CommentAdmin)

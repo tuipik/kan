@@ -152,6 +152,7 @@ class TimeTrackerSerializer(serializers.ModelSerializer):
             "start_time",
             "end_time",
             "hours",
+            "task_status",
         ]
         read_only_fields = ("start_time",)
 
@@ -173,6 +174,9 @@ class TaskSerializer(serializers.ModelSerializer):
     time_trackers = TimeTrackerSerializer(
         source="time_tracker_tasks", many=True, read_only=True
     )
+    change_time_done = serializers.IntegerField(read_only=True)
+    correct_time_done = serializers.IntegerField(read_only=True)
+    otk_time_done = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Task
@@ -180,8 +184,11 @@ class TaskSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "change_time_estimate",
+            "change_time_done",
             "correct_time_estimate",
+            "correct_time_done",
             "otk_time_estimate",
+            "otk_time_done",
             "status",
             "status_display_value",
             "time_trackers",
@@ -196,9 +203,18 @@ class TaskSerializer(serializers.ModelSerializer):
 
     def save(self, **kwargs):
         if not self.instance:
-            pass
+            super().save()
+            return self.instance
 
-        elif (
+        if (
+                self.instance.status in TASK_STATUSES_PROGRESS
+                and self.validated_data.get("status") in TASK_STATUSES_PROGRESS
+        ):
+            raise ValueError(
+                f"Треба спочатку змінити статус на один з: {[status.label for status in TASK_STATUSES_IDLE]}"
+            )
+
+        if (
             self.instance.status in TASK_STATUSES_PROGRESS
             and self.validated_data.get("status") in TASK_STATUSES_IDLE
         ):
@@ -206,19 +222,10 @@ class TaskSerializer(serializers.ModelSerializer):
                 task__id=self.instance.id, status=TimeTrackerStatuses.IN_PROGRESS
             )
             time_tracker.change_status_done()
-
-        elif (
-            self.instance.status in TASK_STATUSES_PROGRESS
-            and self.validated_data.get("status") in TASK_STATUSES_PROGRESS
-        ):
-            raise ValueError(
-                f"Треба спочатку змінити статус на один з: {[status.label for status in TASK_STATUSES_IDLE]}"
-            )
-
+            super().save()
         else:
+            super().save()
             self.instance.start_time_tracker()
-
-        super().save()
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)

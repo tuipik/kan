@@ -1,7 +1,7 @@
 from drf_standardized_errors.formatter import ExceptionFormatter
 from drf_standardized_errors.types import ErrorResponse
 
-from api.models import TaskStatuses
+from api.models import TaskStatuses, TimeTracker, TimeTrackerStatuses
 
 TASK_STATUSES_PROGRESS = [
     TaskStatuses.IN_PROGRESS,
@@ -39,3 +39,9 @@ class KanExceptionFormatter(ExceptionFormatter):
 
         resp = ResponseInfo(success=False, errors=errors)
         return resp.response
+
+
+def update_time_trackers_hours():
+    time_trackers = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS)
+    for tracker in time_trackers:
+        tracker.update_progress_hours()

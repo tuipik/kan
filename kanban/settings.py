@@ -11,8 +11,12 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import datetime
 from pathlib import Path
+
+import businesstimedelta
+import holidays as pyholidays
 import rest_framework.renderers
 import drf_standardized_errors
+from holidays import country_holidays
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -162,3 +166,27 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+workday_start = 9
+workday_end = 18
+launch_start = 13
+launch_end = 14
+launch_time = launch_end - launch_start
+workday_time = workday_end - workday_start - launch_time
+MON, TUE, WEN, THU, FRI = 0, 1, 2, 3, 4
+WORKING_DAYS = [MON, TUE, WEN, THU, FRI]
+
+workday = businesstimedelta.WorkDayRule(
+    start_time=datetime.time(workday_start),
+    end_time=datetime.time(workday_end),
+    working_days=WORKING_DAYS)
+
+lunch_break = businesstimedelta.LunchTimeRule(
+    start_time=datetime.time(launch_start),
+    end_time=datetime.time(launch_end),
+    working_days=WORKING_DAYS)
+
+## Під час воєнного стану свята відмінені Верховною Радою. Pозкоментити нижні строки після закінчення війни
+# ua_holidays = country_holidays('UA')
+# holidays = businesstimedelta.HolidayRule(ua_holidays)
+# business_hours = businesstimedelta.Rules([workday, lunch_break, holidays])
+business_hours = businesstimedelta.Rules([workday, lunch_break])

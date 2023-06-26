@@ -2,6 +2,9 @@ from datetime import datetime, timezone
 
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
 from django.db import models
+from django.db.models import Sum
+
+from kanban.settings import business_hours
 
 
 class UserManager(BaseUserManager):
@@ -163,11 +166,27 @@ class Task(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def change_time_done(self):
+        hours_sum = self.time_tracker_tasks.filter(task_status=TaskStatuses.IN_PROGRESS).aggregate(total_hours=Sum('hours'))
+        return hours_sum.get('total_hours', 0) or 0
+
+    @property
+    def correct_time_done(self):
+        hours_sum = self.time_tracker_tasks.filter(task_status=TaskStatuses.CORRECTING).aggregate(total_hours=Sum('hours'))
+        return hours_sum.get('total_hours', 0) or 0
+
+    @property
+    def otk_time_done(self):
+        hours_sum = self.time_tracker_tasks.filter(task_status=TaskStatuses.OTK).aggregate(total_hours=Sum('hours'))
+        return hours_sum.get('total_hours', 0) or 0
+
     def start_time_tracker(self):
         data = {
             "task": self,
             "user": self.user,
             "status": TimeTrackerStatuses.IN_PROGRESS,
+            "task_status": self.status,
         }
         if TimeTracker.objects.filter(**data).count():
             return
@@ -204,31 +223,29 @@ class TimeTracker(models.Model):
         default=TimeTrackerStatuses.IN_PROGRESS,
         verbose_name="Статус",
     )
+    task_status = models.CharField(
+        max_length=50,
+        choices=TaskStatuses.choices,
+        default=TaskStatuses.WAITING,
+        blank=True,
+        verbose_name="Статус",
+    )
 
     def __str__(self):
         return f"{self.task.name} - {self.get_status_display()}"
 
-    @property
-    def max_hours_per_day(self) -> int:
-        return 8  # робочий час не може бути більше 8 годин
+    def _update_progress_hours(self):
+        self.hours = business_hours.difference(self.start_time, datetime.now(timezone.utc)).hours
 
-    @property
-    def rest_time(self) -> int:
-        return 1
-
-    @property
-    def task_status(self):
-        return self.task.status
+    def update_progress_hours(self):
+        self._update_progress_hours()
+        self.save()
+        return self
 
     def change_status_done(self):
         time_now = datetime.now(timezone.utc)
-        time_delta = round((time_now - self.start_time).total_seconds() / 60 / 60)
-        if time_delta > self.max_hours_per_day:
-            time_delta = self.max_hours_per_day
-        elif time_delta > 4:
-            time_delta -= self.rest_time  # віднімаємо годуну обіду
         self.end_time = time_now
-        self.hours = time_delta
+        self._update_progress_hours()
         self.status = TimeTrackerStatuses.DONE
         self.save()
 
