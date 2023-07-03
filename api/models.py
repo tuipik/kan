@@ -168,23 +168,29 @@ class Task(models.Model):
 
     @property
     def change_time_done(self):
-        hours_sum = self.time_tracker_tasks.filter(task_status=TaskStatuses.IN_PROGRESS).aggregate(total_hours=Sum('hours'))
-        return hours_sum.get('total_hours', 0) or 0
+        hours_sum = self.time_tracker_tasks.filter(
+            task_status=TaskStatuses.IN_PROGRESS
+        ).aggregate(total_hours=Sum("hours"))
+        return hours_sum.get("total_hours", 0) or 0
 
     @property
     def correct_time_done(self):
-        hours_sum = self.time_tracker_tasks.filter(task_status=TaskStatuses.CORRECTING).aggregate(total_hours=Sum('hours'))
-        return hours_sum.get('total_hours', 0) or 0
+        hours_sum = self.time_tracker_tasks.filter(
+            task_status=TaskStatuses.CORRECTING
+        ).aggregate(total_hours=Sum("hours"))
+        return hours_sum.get("total_hours", 0) or 0
 
     @property
     def otk_time_done(self):
-        hours_sum = self.time_tracker_tasks.filter(task_status=TaskStatuses.OTK).aggregate(total_hours=Sum('hours'))
-        return hours_sum.get('total_hours', 0) or 0
+        hours_sum = self.time_tracker_tasks.filter(
+            task_status=TaskStatuses.OTK
+        ).aggregate(total_hours=Sum("hours"))
+        return hours_sum.get("total_hours", 0) or 0
 
     def start_time_tracker(self):
         data = {
             "task": self,
-            "user": self.user,
+            "user": None or self.user,
             "status": TimeTrackerStatuses.IN_PROGRESS,
             "task_status": self.status,
         }
@@ -211,6 +217,8 @@ class TimeTracker(models.Model):
         on_delete=models.CASCADE,
         related_name="time_tracker_users",
         verbose_name="Виконавець",
+        null=True,
+        blank=True,
     )
     start_time = models.DateTimeField(verbose_name="Час початку", auto_now_add=True)
     end_time = models.DateTimeField(
@@ -235,7 +243,9 @@ class TimeTracker(models.Model):
         return f"{self.task.name} - {self.get_status_display()}"
 
     def _update_progress_hours(self):
-        self.hours = business_hours.difference(self.start_time, datetime.now(timezone.utc)).hours
+        self.hours = business_hours.difference(
+            self.start_time, datetime.now(timezone.utc)
+        ).hours
 
     def update_progress_hours(self):
         self._update_progress_hours()

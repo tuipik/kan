@@ -59,7 +59,9 @@ def create_user_with_department(
     return user, department[0]
 
 
-def create_task(user: User = None, department: Department = None, name: str = "M-37-103-А") -> Task:
+def create_task(
+    user: User = None, department: Department = None, name: str = "M-37-103-А"
+) -> Task:
     data = {
         "name": name,
         "change_time_estimate": 50,
@@ -70,7 +72,13 @@ def create_task(user: User = None, department: Department = None, name: str = "M
         "user": user,
         "department": department,
     }
-    return Task.objects.create(**data)
+    task = Task.objects.create(**data)
+    time_tracker_data = {
+        "task": task,
+        "user": user,
+    }
+    TimeTracker.objects.create(**time_tracker_data)
+    return task
 
 
 def create_time_tracker(task: Task, user: User) -> TimeTracker:

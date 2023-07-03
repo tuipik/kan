@@ -19,7 +19,7 @@ from .filters import (
     CommentFilter,
     DepartmentFilter,
 )
-from .kan_permissions import PermissionPolicyMixin
+from .kan_permissions import PermissionPolicyMixin, OwnerOrAdminOrReadOnly
 from .models import User, Department, Task, Comment, TimeTracker
 from .serializers import (
     UserCreateSerializer,
@@ -243,7 +243,7 @@ class TimeTrackerViewSet(ResponseModelViewSet):
 class CommentViewSet(ResponseModelViewSet):
     queryset = Comment.objects.all()
     authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, OwnerOrAdminOrReadOnly]
     serializer_classes = {}
     default_serializer_class = CommentSerializer
     filter_backends = [DjangoFilterBackend]

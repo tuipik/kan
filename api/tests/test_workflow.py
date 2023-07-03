@@ -30,13 +30,15 @@ def test_workflow_ok(api_client, super_user, freezer):
         reverse("task-detail", kwargs={"pk": task.id}),
         data={"user": user_executant.id, "status": TaskStatuses.IN_PROGRESS},
     )
-    time_trackers = api_client.get(reverse("time_tracker-list"))
+    time_trackers = api_client.get(
+        f'{reverse("time_tracker-list")}?status={TimeTrackerStatuses.IN_PROGRESS}'
+    )
 
     assert task_updated.data.get("data")[0].get("user").get("id") == user_executant.id
     assert task_updated.data.get("data")[0].get("status") == TaskStatuses.IN_PROGRESS
     assert time_trackers.data.get("data_len") == 1
     assert time_trackers.data.get("data")[0].get("task") == task.id
-    assert time_trackers.data.get("data")[0].get("user") == user_executant.id
+    assert time_trackers.data.get("data")[0].get("user").get("id") == user_executant.id
     assert (
         time_trackers.data.get("data")[0].get("status")
         == TimeTrackerStatuses.IN_PROGRESS
@@ -52,7 +54,9 @@ def test_workflow_ok(api_client, super_user, freezer):
         data={"user": no_user, "status": TaskStatuses.CORRECTING_QUEUE},
         format="json",
     )
-    time_trackers = api_client.get(f'{reverse("time_tracker-list")}')
+    time_trackers = api_client.get(
+        f'{reverse("time_tracker-list")}?task_status={TaskStatuses.IN_PROGRESS}'
+    )
 
     assert task_updated.data.get("data")[0].get("user").get("id") == no_user
     assert (
@@ -60,7 +64,7 @@ def test_workflow_ok(api_client, super_user, freezer):
     )
     assert time_trackers.data.get("data_len") == 1
     assert time_trackers.data.get("data")[0].get("task") == task.id
-    assert time_trackers.data.get("data")[0].get("user") == user_executant.id
+    assert time_trackers.data.get("data")[0].get("user").get("id") == user_executant.id
     assert time_trackers.data.get("data")[0].get("status") == TimeTrackerStatuses.DONE
     assert (
         time_trackers.data.get("data")[0].get("task_status") == TaskStatuses.IN_PROGRESS
@@ -82,7 +86,7 @@ def test_workflow_ok(api_client, super_user, freezer):
     assert task_updated.data.get("data")[0].get("status") == TaskStatuses.CORRECTING
     assert time_trackers.data.get("data_len") == 1
     assert time_trackers.data.get("data")[0].get("task") == task.id
-    assert time_trackers.data.get("data")[0].get("user") == user_corrector.id
+    assert time_trackers.data.get("data")[0].get("user").get("id") == user_corrector.id
     assert (
         time_trackers.data.get("data")[0].get("status")
         == TimeTrackerStatuses.IN_PROGRESS
@@ -107,7 +111,7 @@ def test_workflow_ok(api_client, super_user, freezer):
     assert task_updated.data.get("data")[0].get("status") == TaskStatuses.OTK_QUEUE
     assert time_trackers.data.get("data_len") == 1
     assert time_trackers.data.get("data")[0].get("task") == task.id
-    assert time_trackers.data.get("data")[0].get("user") == user_corrector.id
+    assert time_trackers.data.get("data")[0].get("user").get("id") == user_corrector.id
     assert time_trackers.data.get("data")[0].get("status") == TimeTrackerStatuses.DONE
     assert time_trackers.data.get("data")[0].get("hours") == correct_working_hours
 
@@ -126,7 +130,7 @@ def test_workflow_ok(api_client, super_user, freezer):
     assert task_updated.data.get("data")[0].get("status") == TaskStatuses.OTK
     assert time_trackers.data.get("data_len") == 1
     assert time_trackers.data.get("data")[0].get("task") == task.id
-    assert time_trackers.data.get("data")[0].get("user") == user_otk.id
+    assert time_trackers.data.get("data")[0].get("user").get("id") == user_otk.id
     assert (
         time_trackers.data.get("data")[0].get("status")
         == TimeTrackerStatuses.IN_PROGRESS
@@ -151,7 +155,7 @@ def test_workflow_ok(api_client, super_user, freezer):
     assert task_updated.data.get("data")[0].get("status") == TaskStatuses.DONE
     assert time_trackers.data.get("data_len") == 1
     assert time_trackers.data.get("data")[0].get("task") == task.id
-    assert time_trackers.data.get("data")[0].get("user") == user_otk.id
+    assert time_trackers.data.get("data")[0].get("user").get("id") == user_otk.id
     assert time_trackers.data.get("data")[0].get("status") == TimeTrackerStatuses.DONE
     assert time_trackers.data.get("data")[0].get("hours") == otk_working_hours
 
@@ -178,14 +182,18 @@ def test_aggregate_status_time_done(api_client, super_user, freezer):
     hours_passed = 1
     freezer.move_to(datetime.datetime.now() + datetime.timedelta(hours=hours_passed))
     update_time_trackers_hours()
-    time_trackers = api_client.get(reverse("time_tracker-list"))
+    time_trackers = api_client.get(
+        f'{reverse("time_tracker-list")}?status={TimeTrackerStatuses.IN_PROGRESS}'
+    )
     assert time_trackers.data.get("data")[0].get("hours") == 1
     assert time_trackers.data.get("data")[1].get("hours") == 1
 
     hours_passed = 1
     freezer.move_to(datetime.datetime.now() + datetime.timedelta(hours=hours_passed))
     update_time_trackers_hours()
-    time_trackers = api_client.get(reverse("time_tracker-list"))
+    time_trackers = api_client.get(
+        f'{reverse("time_tracker-list")}?status={TimeTrackerStatuses.IN_PROGRESS}'
+    )
     assert time_trackers.data.get("data")[0].get("hours") == 2
     assert time_trackers.data.get("data")[1].get("hours") == 2
 

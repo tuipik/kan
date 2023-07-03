@@ -1,5 +1,6 @@
 import datetime
 import pytest
+from rest_framework.exceptions import ValidationError
 from rest_framework.reverse import reverse
 
 from api.models import TimeTracker, TaskStatuses, TimeTrackerStatuses
@@ -88,6 +89,39 @@ def test_CRUD_tasks_ok(api_client, super_user):
 
 
 @pytest.mark.django_db
+def test_user_already_has_task_in_progress(api_client, super_user, freezer):
+    api_client.force_authenticate(super_user)
+    user_data = default_user_data(3)
+    user_executant, department = create_user_with_department(next(user_data))
+    task_data = {
+        "name": "task_1",
+        "change_time_estimate": 50,
+        "correct_time_estimate": 25,
+        "otk_time_estimate": 15,
+        "quarter": 1,
+        "category": "some category",
+        "user": None,
+        "department": department.id,
+    }
+
+    task_1 = api_client.post(reverse("task-list"), data=task_data, format="json")
+    task_1_in_progress = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task_1.data.get("data")[0].get("id")}),
+        data={"user": user_executant.id, "status": TaskStatuses.IN_PROGRESS},
+        format="json",
+    )
+    task_data["name"] = "task_2"
+    task_2 = api_client.post(reverse("task-list"), data=task_data, format="json")
+    task_2_in_progress = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task_2.data.get("data")[0].get("id")}),
+        data={"user": user_executant.id, "status": TaskStatuses.IN_PROGRESS},
+        format="json",
+    )
+    assert not task_2_in_progress.data.get("success")
+    assert task_2_in_progress.data.get("errors")
+
+
+@pytest.mark.django_db
 def test_create_time_tracker_on_change_task_in_progress(
     api_client, super_user, freezer
 ):
@@ -95,22 +129,19 @@ def test_create_time_tracker_on_change_task_in_progress(
     user_data = default_user_data(1)
     user, department = create_user_with_department(next(user_data))
     task = create_task(user=user, department=department)
-    api_client.patch(
+    a1 = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": TaskStatuses.IN_PROGRESS},
+        data={"user": user.id, "status": TaskStatuses.IN_PROGRESS},
     )
     # the second run update with status IN_PROGRESS is to test, that only 1 TimeTracker can be IN_PROGRESS at one time
     # and should change status to idle first
-    with pytest.raises(Exception) as exc_info:
-        api_client.patch(
-            reverse("task-detail", kwargs={"pk": task.id}),
-            data={"status": TaskStatuses.IN_PROGRESS},
-        )
-    assert exc_info.type == ValueError
+    a2 = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.id}),
+        data={"user": user.id, "status": TaskStatuses.IN_PROGRESS},
+    )
 
-    time_trackers_count = TimeTracker.objects.count()
-    time_trackers = TimeTracker.objects.all()
-    assert time_trackers_count == 1
+    time_trackers = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS)
+    assert time_trackers.count() == 1
     assert time_trackers[0].task.id == task.id
     assert time_trackers[0].user.id == user.id
     assert time_trackers[0].status == TaskStatuses.IN_PROGRESS

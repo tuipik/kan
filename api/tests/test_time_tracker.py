@@ -34,6 +34,8 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
     assert task.data.get("success")
     task_id = task.data.get("data")[0].get("id")
 
+    TimeTracker.objects.all().delete()  # Delete all TimeTracker objects, cause one with status Waiting creates on creating Task
+
     # test create
     time_tracker_data = {
         "task": task_id,
@@ -53,9 +55,9 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
     assert all_time_trackers.data.get("data")[0].get("task") == time_tracker_data.get(
         "task"
     )
-    assert all_time_trackers.data.get("data")[0].get("user") == time_tracker_data.get(
-        "user"
-    )
+    assert all_time_trackers.data.get("data")[0].get("user").get(
+        "id"
+    ) == time_tracker_data.get("user")
     assert not all_time_trackers.data.get("data")[0].get("end_time")
     assert all_time_trackers.data.get("data")[0].get("hours") == 0
     assert (

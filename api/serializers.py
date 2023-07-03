@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 
 from .models import (
     User,
@@ -40,12 +41,16 @@ class CommentSerializer(serializers.ModelSerializer):
         model = Comment
         fields = "__all__"
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["user"] = UserBaseSerializer(instance.user).data
+        return representation
+
 
 class UserBaseSerializer(serializers.ModelSerializer):
     department = serializers.PrimaryKeyRelatedField(
         queryset=Department.objects.all(), allow_null=True, many=False, label="Відділ"
     )
-    comments = CommentSerializer(source="user_comments", allow_null=True, many=True)
 
     class Meta:
         model = User
@@ -67,6 +72,8 @@ class UserBaseSerializer(serializers.ModelSerializer):
 
 
 class UserDetailSerializer(UserBaseSerializer):
+    comments = CommentSerializer(source="user_comments", allow_null=True, many=True)
+
     class Meta(UserBaseSerializer.Meta):
         fields = UserBaseSerializer.Meta.fields + [
             "is_admin",
@@ -156,6 +163,11 @@ class TimeTrackerSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ("start_time",)
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["user"] = UserBaseSerializer(instance.user).data
+        return representation
+
 
 class TaskSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(
@@ -201,34 +213,47 @@ class TaskSerializer(serializers.ModelSerializer):
             "comments",
         ]
 
-    def save(self, **kwargs):
-        if not self.instance:
-            super().save()
-            return self.instance
+    def check_user_has_only_one_task_in_progress(self):
+        if (user := self.validated_data.get("user")) and self.validated_data.get(
+            "status"
+        ) in TASK_STATUSES_PROGRESS:
+            tasks_in_progress = user.task_users.filter(
+                status__in=TASK_STATUSES_PROGRESS
+            )
+            if tasks_in_progress:
+                raise ValidationError(
+                    f"У користувача {user.username} вже є активна задача {tasks_in_progress[0].name}"
+                )
 
-        if (
-            self.instance.status in TASK_STATUSES_PROGRESS
-            and self.validated_data.get("status") in TASK_STATUSES_PROGRESS
-        ):
-            raise ValueError(
-                f"Треба спочатку змінити статус на один з: {[status.label for status in TASK_STATUSES_IDLE]}"
+    def _check_user_for_progress_status(self):
+        if self.validated_data.get("status") in TASK_STATUSES_PROGRESS and not self.validated_data.get("user"):
+            raise ValidationError(
+                "Для переводу задачі в статус 'В роботі' має бути вказаний виконавець"
             )
 
-        if (
-            self.instance.status in TASK_STATUSES_PROGRESS
-            and self.validated_data.get("status") in TASK_STATUSES_IDLE
-        ):
+    def save(self, **kwargs):
+        self.check_user_has_only_one_task_in_progress()
+        if not self.instance:
+            super().save()
+            self.instance.start_time_tracker()
+            return self.instance
+
+        if validated_status := self.validated_data.get("status"):
             time_tracker = self.instance.time_tracker_tasks.get(
                 task__id=self.instance.id, status=TimeTrackerStatuses.IN_PROGRESS
             )
-            time_tracker.change_status_done()
-            super().save()
-        else:
-            super().save()
-            self.instance.start_time_tracker()
+            if validated_status != time_tracker.task_status:
+                self._check_user_for_progress_status()
+                time_tracker.change_status_done()
+                super().save()
+                self.instance.start_time_tracker()
+                return self.instance
+
+        super().save()
+        return self.instance
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["user"] = UserDetailSerializer(instance.user).data
+        representation["user"] = UserBaseSerializer(instance.user).data
         representation["department"] = DepartmentSerializer(instance.department).data
         return representation
