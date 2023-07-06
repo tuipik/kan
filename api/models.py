@@ -196,6 +196,11 @@ class Task(models.Model):
         del data["status"]
         return TimeTracker.objects.create(**data)
 
+    def create_log_comment(self, log_user, log_text, is_log):
+        return Comment.objects.create(
+            task=self, user=log_user, body=log_text, is_log=is_log
+        )
+
 
 class TimeTrackerStatuses(models.TextChoices):
     IN_PROGRESS = "IN_PROGRESS", "В роботі"
@@ -263,6 +268,8 @@ class Comment(models.Model):
         on_delete=models.CASCADE,
         related_name="user_comments",
         verbose_name="Виконавець",
+        null=True,
+        blank=True,
     )
     body = models.TextField()
     created = models.DateTimeField(auto_now_add=True)

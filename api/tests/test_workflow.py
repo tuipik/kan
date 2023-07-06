@@ -18,6 +18,7 @@ def test_workflow_ok(api_client, super_user, freezer):
     """
 
     # Create task -> task waiting ->
+    api_client.force_authenticate(super_user)
     user_data = default_user_data(3)
     user_executant, department = create_user_with_department(next(user_data))
     user_corrector, department = create_user_with_department(next(user_data))
@@ -25,7 +26,6 @@ def test_workflow_ok(api_client, super_user, freezer):
     task = create_task(department=department)
 
     # task in_progress user1 ->
-    api_client.force_authenticate(super_user)
     task_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
         data={"user": user_executant.id, "status": TaskStatuses.IN_PROGRESS},

@@ -8,6 +8,7 @@ from .models import (
     Comment,
     TimeTracker,
     TimeTrackerStatuses,
+    TaskStatuses,
 )
 from .utils import TASK_STATUSES_PROGRESS
 
@@ -232,11 +233,34 @@ class TaskSerializer(serializers.ModelSerializer):
                 "Для переводу задачі в статус 'В роботі' має бути вказаний виконавець"
             )
 
+    def _create_log_data(self):
+        data = {
+            "log_user": self.context["request"].user,
+            "log_text": "",
+            "is_log": False,
+        }
+        if self.context["request"].method == "POST":
+            data[
+                "log_text"
+            ] = f'Створено задачу для {self.validated_data.get("name", "")}'
+            data["is_log"] = True
+        elif self.context["request"].method in ["PUT", "PATCH"]:
+            change_list = []
+            for key, value in self.validated_data.items():
+                change_list.append(
+                    f'{self.fields.fields.get(key).label} - {TaskStatuses[value].label if key == "status" else value}'
+                )
+            data["log_text"] = f'Внесено зміни: {", ".join(change_list)}'
+            data["is_log"] = True
+        return data
+
     def save(self, **kwargs):
+        comment_data = self._create_log_data()
         self.check_user_has_only_one_task_in_progress()
         if not self.instance:
             super().save()
             self.instance.start_time_tracker()
+            self.instance.create_log_comment(**comment_data)
             return self.instance
 
         if validated_status := self.validated_data.get("status"):
@@ -248,9 +272,11 @@ class TaskSerializer(serializers.ModelSerializer):
                 time_tracker.change_status_done()
                 super().save()
                 self.instance.start_time_tracker()
+                self.instance.create_log_comment(**comment_data)
                 return self.instance
 
         super().save()
+        self.instance.create_log_comment(**comment_data)
         return self.instance
 
     def to_representation(self, instance):
