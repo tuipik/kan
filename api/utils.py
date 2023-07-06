@@ -48,4 +48,4 @@ def update_time_trackers_hours():
     time_trackers = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS)
     if time_trackers:
         for tracker in time_trackers:
-            tracker.update_progress_hours()
+            tracker.save()

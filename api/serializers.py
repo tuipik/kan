@@ -8,21 +8,20 @@ from .models import (
     Comment,
     TimeTracker,
     TimeTrackerStatuses,
-    TaskStatuses,
 )
-from .utils import TASK_STATUSES_PROGRESS, TASK_STATUSES_IDLE
+from .utils import TASK_STATUSES_PROGRESS
 
 
 class DepartmentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
-        fields = ["id", "name"]
+        fields = ["id", "name", "is_verifier"]
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
-        fields = ["id", "name", "head"]
+        fields = ["id", "name", "head", "is_verifier"]
 
     def save(self):
         if user_id := self.initial_data.get("head"):
@@ -161,7 +160,7 @@ class TimeTrackerSerializer(serializers.ModelSerializer):
             "hours",
             "task_status",
         ]
-        read_only_fields = ("start_time",)
+        read_only_fields = ("start_time", "hours")
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -226,7 +225,9 @@ class TaskSerializer(serializers.ModelSerializer):
                 )
 
     def _check_user_for_progress_status(self):
-        if self.validated_data.get("status") in TASK_STATUSES_PROGRESS and not self.validated_data.get("user"):
+        if self.validated_data.get(
+            "status"
+        ) in TASK_STATUSES_PROGRESS and not self.validated_data.get("user"):
             raise ValidationError(
                 "Для переводу задачі в статус 'В роботі' має бути вказаний виконавець"
             )

@@ -30,3 +30,8 @@ class OwnerOrAdminOrReadOnly(permissions.BasePermission):
         if obj.user == request.user or request.user.is_admin:
             return True
         return False
+
+
+class TimeTrackerChangeIsAdminOrIsDepartmentHead(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return obj.task.department.head == request.user or request.user.is_admin

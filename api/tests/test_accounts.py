@@ -1,8 +1,7 @@
 import pytest
 from rest_framework.reverse import reverse
 
-from api.models import User
-from conftest import default_user_data
+from conftest import default_user_data, create_user_with_department
 
 
 @pytest.mark.django_db
@@ -86,16 +85,13 @@ def test_CRUD_accounts_ok(api_client, super_user):
 def test_not_admin(api_client):
     users_data = default_user_data(2)
     user_1_data = next(users_data)
-    del user_1_data["password2"]
-    del user_1_data["department"]
-    user = User.objects.create(**user_1_data)
+    user, department = create_user_with_department(user_1_data)
 
     api_client.force_authenticate(user)
     all_users_resp = api_client.get(reverse("account-list"))
     user_1_resp = api_client.post(reverse("account-list"), data=next(users_data))
 
-    assert all_users_resp.status_code == 403
-    assert all_users_resp.data.get("errors")[0].get("code") == "permission_denied"
+    assert all_users_resp.status_code == 200
     assert user_1_resp.status_code == 403
     assert user_1_resp.data.get("errors")[0].get("code") == "permission_denied"
 

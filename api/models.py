@@ -1,6 +1,10 @@
 from datetime import datetime, timezone
 
-from django.contrib.auth.models import BaseUserManager, AbstractBaseUser
+from django.contrib.auth.models import (
+    BaseUserManager,
+    AbstractBaseUser,
+    PermissionsMixin,
+)
 from django.db import models
 from django.db.models import Sum
 
@@ -50,7 +54,7 @@ class UserManager(BaseUserManager):
         return user
 
 
-class User(AbstractBaseUser):
+class User(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=255, unique=True, verbose_name="Логін")
     first_name = models.CharField(max_length=255, verbose_name="Ім'я")
     last_name = models.CharField(max_length=255, verbose_name="Прізвище")
@@ -71,12 +75,6 @@ class User(AbstractBaseUser):
 
     def __str__(self):
         return f"{self.last_name} {self.first_name}"
-
-    def has_perm(self, perm, obj=None):
-        return True
-
-    def has_module_perms(self, app_label):
-        return True
 
     @property
     def is_head_department(self):
@@ -99,6 +97,7 @@ class Department(models.Model):
         blank=True,
         null=True,
     )
+    is_verifier = models.BooleanField(default=False, verbose_name="Перевіряючий відділ")
 
     def __str__(self):
         return self.name
@@ -156,11 +155,9 @@ class Task(models.Model):
     )
     department = models.ForeignKey(
         "Department",
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         related_name="task_departments",
         verbose_name="Відділ",
-        blank=True,
-        null=True,
     )
 
     def __str__(self):
@@ -236,28 +233,22 @@ class TimeTracker(models.Model):
         choices=TaskStatuses.choices,
         default=TaskStatuses.WAITING,
         blank=True,
-        verbose_name="Статус",
+        verbose_name="Статус задачі",
     )
 
     def __str__(self):
         return f"{self.task.name} - {self.get_status_display()}"
 
-    def _update_progress_hours(self):
-        self.hours = business_hours.difference(
-            self.start_time, datetime.now(timezone.utc)
-        ).hours
-
-    def update_progress_hours(self):
-        self._update_progress_hours()
-        self.save()
-        return self
-
     def change_status_done(self):
-        time_now = datetime.now(timezone.utc)
-        self.end_time = time_now
-        self._update_progress_hours()
+        self.end_time = datetime.now(timezone.utc)
         self.status = TimeTrackerStatuses.DONE
         self.save()
+
+    def save(self, *args, **kwargs):
+        time_now = self.end_time or datetime.now(timezone.utc)
+        if self.start_time:
+            self.hours = business_hours.difference(self.start_time, time_now).hours
+        super(TimeTracker, self).save(*args, **kwargs)
 
 
 class Comment(models.Model):
@@ -275,6 +266,8 @@ class Comment(models.Model):
     )
     body = models.TextField()
     created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    is_log = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["created"]

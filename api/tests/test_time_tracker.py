@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 from rest_framework.reverse import reverse
 
@@ -5,6 +7,7 @@ from api.models import TimeTrackerStatuses, TimeTracker
 
 
 @pytest.mark.django_db
+@pytest.mark.freeze_time("2023-06-05 09:00:00")
 def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
     api_client.force_authenticate(super_user)
 
@@ -66,6 +69,11 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
     )
 
     # test put
+    hours_passed = 1
+    freezer.move_to(
+        datetime.datetime.now() + datetime.timedelta(hours=hours_passed, minutes=20)
+    )
+
     time_tracker_obj_id = all_time_trackers.data.get("data")[0].get("id")
     time_tracker_data["status"] = TimeTrackerStatuses.DONE
 
@@ -76,6 +84,7 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
     assert result.data.get("success")
     assert not result.data.get("errors")
     assert result.data.get("data_len") == 1
+    assert result.data["data"][0].get("hours") == hours_passed
     assert result.data.get("message") == "Updated"
 
     time_tracker_updated = api_client.get(

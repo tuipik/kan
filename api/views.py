@@ -19,7 +19,11 @@ from .filters import (
     CommentFilter,
     DepartmentFilter,
 )
-from .kan_permissions import PermissionPolicyMixin, OwnerOrAdminOrReadOnly
+from .kan_permissions import (
+    PermissionPolicyMixin,
+    OwnerOrAdminOrReadOnly,
+    TimeTrackerChangeIsAdminOrIsDepartmentHead,
+)
 from .models import User, Department, Task, Comment, TimeTracker
 from .serializers import (
     UserCreateSerializer,
@@ -113,9 +117,7 @@ class ResponseModelViewSet(ModelViewSet):
 
 
 class UserViewSet(ResponseModelViewSet):
-    queryset = User.objects.all()
     authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated, IsAdminUser]
     serializer_classes = {
         "create": UserCreateSerializer,
         "update": UserUpdateSerializer,
@@ -124,6 +126,23 @@ class UserViewSet(ResponseModelViewSet):
     default_serializer_class = UserDetailSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = UserFilter
+
+    def get_queryset(self, *args, **kwargs):
+        current_user = self.request.user
+        if current_user.is_admin:
+            return User.objects.all()
+        else:
+            return User.objects.filter(department_id=current_user.department.id)
+
+    def get_permissions(self):
+        if self.action in [
+            "list",
+            "retrieve",
+        ]:
+            permission_classes = [IsAuthenticated]
+        else:
+            permission_classes = [IsAuthenticated, IsAdminUser]
+        return [permission() for permission in permission_classes]
 
 
 class LoginView(APIView):
@@ -229,11 +248,33 @@ class TaskViewSet(ResponseModelViewSet):
             permission_classes = [IsAuthenticated, IsAdminUser]
         return [permission() for permission in permission_classes]
 
+    def get_queryset(self, *args, **kwargs):
+        current_user = self.request.user
+        if current_user.is_admin or current_user.department.is_verifier:
+            return Task.objects.all()
+        else:
+            return Task.objects.filter(department_id=current_user.department.id)
 
-class TimeTrackerViewSet(ResponseModelViewSet):
+
+class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
     queryset = TimeTracker.objects.all()
     authentication_classes = [SessionAuthentication, BasicAuthentication]
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated]
+    permission_classes_per_method = {
+        "create": [
+            IsAdminUser,
+        ],
+        "update": [
+            TimeTrackerChangeIsAdminOrIsDepartmentHead,
+        ],
+        "partial_update": [
+            TimeTrackerChangeIsAdminOrIsDepartmentHead,
+        ],
+        "destroy": [
+            IsAdminUser,
+        ],
+    }
+
     serializer_classes = {}
     default_serializer_class = TimeTrackerSerializer
     filter_backends = [DjangoFilterBackend]
