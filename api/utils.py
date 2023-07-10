@@ -23,7 +23,7 @@ class ResponseInfo(object):
         self.response = {
             "success": kwargs.get("success", True),
             "errors": kwargs.get("errors", None),
-            "data_len": 0,
+            "data_len": len(kwargs.get("data", [])),
             "data": kwargs.get("data", []),
             "message": kwargs.get("message", None),
         }

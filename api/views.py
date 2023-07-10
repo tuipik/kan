@@ -149,15 +149,17 @@ class LoginView(APIView):
     def post(self, request):
         if "username" not in request.data or "password" not in request.data:
             raise BadRequest("Credentials missing")
-        username = request.POST["username"]
-        password = request.POST["password"]
+        username = request.data["username"]
+        password = request.data["password"]
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
+            user_serialized = UserDetailSerializer(user).data
             return Response(
                 ResponseInfo(
                     success=True,
-                    data=UserDetailSerializer(user).data,
+                    data=[user_serialized],
+                    data_len=len([user_serialized]),
                     message="Login Success",
                 ).response,
                 status=status.HTTP_200_OK,
