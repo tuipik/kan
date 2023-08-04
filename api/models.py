@@ -74,7 +74,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = ["first_name", "last_name"]
 
     def __str__(self):
-        return f"{self.last_name} {self.first_name}"
+        return f"<User {self.last_name} {self.first_name}>"
 
     @property
     def is_head_department(self):
@@ -84,6 +84,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def is_staff(self):
+        return self.is_admin
+
+    @property
+    def is_superuser(self):
         return self.is_admin
 
 
@@ -187,14 +191,13 @@ class Task(models.Model):
     def start_time_tracker(self):
         data = {
             "task": self,
-            "user": None or self.user,
+            "user": self.user,
             "status": TimeTrackerStatuses.IN_PROGRESS,
             "task_status": self.status,
         }
-        if TimeTracker.objects.filter(**data).count():
-            return
-        del data["status"]
-        return TimeTracker.objects.create(**data)
+        if not TimeTracker.objects.filter(**data).count():
+            del data["status"]
+            return TimeTracker.objects.create(**data)
 
     def create_log_comment(self, log_user, log_text, is_log):
         return Comment.objects.create(
