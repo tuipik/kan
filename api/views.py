@@ -1,9 +1,8 @@
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate
 from django.core.exceptions import BadRequest
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_standardized_errors.handler import exception_handler
 from rest_framework import status
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.permissions import (
     IsAuthenticated,
     IsAdminUser,
@@ -11,6 +10,8 @@ from rest_framework.permissions import (
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from .filters import (
     UserFilter,
@@ -117,7 +118,7 @@ class ResponseModelViewSet(ModelViewSet):
 
 
 class UserViewSet(ResponseModelViewSet):
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication]
     serializer_classes = {
         "create": UserCreateSerializer,
         "update": UserUpdateSerializer,
@@ -153,8 +154,12 @@ class LoginView(APIView):
         password = request.data["password"]
         user = authenticate(request, username=username, password=password)
         if user is not None:
-            login(request, user)
             user_serialized = UserDetailSerializer(user).data
+            token = RefreshToken.for_user(user)
+            user_serialized["tokens"] = {
+                "access": str(token.access_token),
+                "refresh": str(token),
+            }
             return Response(
                 ResponseInfo(
                     success=True,
@@ -172,13 +177,15 @@ class LoginView(APIView):
 
 class LogoutView(APIView):
     def post(self, request):
+        refresh_token = request.data["refresh"]
         try:
-            user = request.user.get_username()
+            refresh_token = RefreshToken(refresh_token)
+            user = User.objects.get(id=refresh_token.payload["user_id"])
         except AttributeError:
             user = "Undefined"
-        logout(request)
+        refresh_token.blacklist()
         return Response(
-            ResponseInfo(success=True, message=f"{user} Logged out").response,
+            ResponseInfo(success=True, message=f"{user.username} Logged out").response,
             status=status.HTTP_200_OK,
         )
 
@@ -207,7 +214,7 @@ class DepartmentApiViewSet(PermissionPolicyMixin, ResponseModelViewSet):
         "create": DepartmentCreateSerializer,
     }
     default_serializer_class = DepartmentSerializer
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication]
     permission_classes = [
         IsAuthenticated,
     ]
@@ -231,8 +238,11 @@ class DepartmentApiViewSet(PermissionPolicyMixin, ResponseModelViewSet):
 
 class TaskViewSet(ResponseModelViewSet):
     queryset = Task.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
-    # permission_classes = [IsAuthenticated, IsAdminUser]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [
+        IsAuthenticated,
+        # IsAdminUser
+    ]
     serializer_classes = {}
     default_serializer_class = TaskSerializer
     filter_backends = [DjangoFilterBackend]
@@ -260,7 +270,7 @@ class TaskViewSet(ResponseModelViewSet):
 
 class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
     queryset = TimeTracker.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     permission_classes_per_method = {
         "create": [
@@ -285,7 +295,7 @@ class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
 
 class CommentViewSet(ResponseModelViewSet):
     queryset = Comment.objects.all()
-    authentication_classes = [SessionAuthentication, BasicAuthentication]
+    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, OwnerOrAdminOrReadOnly]
     serializer_classes = {}
     default_serializer_class = CommentSerializer

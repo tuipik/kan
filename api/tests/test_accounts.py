@@ -102,7 +102,7 @@ def test_not_authenticated(api_client):
     all_users_resp = api_client.get(reverse("account-list"))
     user_1_resp = api_client.post(reverse("account-list"), data=next(users_data))
 
-    assert all_users_resp.status_code == 403
+    assert all_users_resp.status_code == 401
     assert all_users_resp.data.get("errors")[0].get("code") == "not_authenticated"
-    assert user_1_resp.status_code == 403
+    assert user_1_resp.status_code == 401
     assert user_1_resp.data.get("errors")[0].get("code") == "not_authenticated"
