@@ -189,6 +189,8 @@ class TaskSerializer(serializers.ModelSerializer):
     change_time_done = serializers.IntegerField(read_only=True)
     correct_time_done = serializers.IntegerField(read_only=True)
     otk_time_done = serializers.IntegerField(read_only=True)
+    created = serializers.DateTimeField(read_only=True)
+    updated = serializers.DateTimeField(read_only=True)
 
     class Meta:
         model = Task
@@ -211,6 +213,8 @@ class TaskSerializer(serializers.ModelSerializer):
             "department",
             "done",
             "comments",
+            "created",
+            "updated",
         ]
 
     def check_user_has_only_one_task_in_progress(self):
