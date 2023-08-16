@@ -141,6 +141,7 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "drf_standardized_errors.handler.exception_handler",
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
+    'DATETIME_FORMAT': "%d-%m-%Y %H:%M",
 }
 
 DRF_STANDARDIZED_ERRORS = {

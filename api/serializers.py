@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
+from kanban import settings
 from .models import (
     User,
     Department,
@@ -37,6 +38,8 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
 
 class CommentSerializer(serializers.ModelSerializer):
+    created = serializers.DateTimeField(read_only=True, format=settings.REST_FRAMEWORK['DATETIME_FORMAT'])
+    updated = serializers.DateTimeField(read_only=True, format=settings.REST_FRAMEWORK['DATETIME_FORMAT'])
     class Meta:
         model = Comment
         fields = "__all__"
@@ -189,8 +192,8 @@ class TaskSerializer(serializers.ModelSerializer):
     change_time_done = serializers.IntegerField(read_only=True)
     correct_time_done = serializers.IntegerField(read_only=True)
     otk_time_done = serializers.IntegerField(read_only=True)
-    created = serializers.DateTimeField(read_only=True)
-    updated = serializers.DateTimeField(read_only=True)
+    created = serializers.DateTimeField(read_only=True, format=settings.REST_FRAMEWORK['DATETIME_FORMAT'])
+    updated = serializers.DateTimeField(read_only=True, format=settings.REST_FRAMEWORK['DATETIME_FORMAT'])
 
     class Meta:
         model = Task

@@ -280,7 +280,7 @@ class Comment(models.Model):
     is_log = models.BooleanField(default=False)
 
     class Meta:
-        ordering = ["created"]
+        ordering = ["-created"]
 
     def __str__(self):
         return f"{self.user} commented {self.created}"
