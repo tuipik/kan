@@ -35,7 +35,7 @@ from .serializers import (
     CommentSerializer,
     TimeTrackerSerializer,
     UserUpdateSerializer,
-    DepartmentCreateSerializer,
+    DepartmentCreateSerializer, UserBaseSerializer,
 )
 from .utils import ResponseInfo
 
@@ -124,7 +124,7 @@ class UserViewSet(ResponseModelViewSet):
         "update": UserUpdateSerializer,
         "partial_update": UserUpdateSerializer,
     }
-    default_serializer_class = UserDetailSerializer
+    default_serializer_class = UserBaseSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = UserFilter
 

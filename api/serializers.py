@@ -40,6 +40,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
 class CommentSerializer(serializers.ModelSerializer):
     created = serializers.DateTimeField(read_only=True, format=settings.REST_FRAMEWORK['DATETIME_FORMAT'])
     updated = serializers.DateTimeField(read_only=True, format=settings.REST_FRAMEWORK['DATETIME_FORMAT'])
+
     class Meta:
         model = Comment
         fields = "__all__"
@@ -63,6 +64,7 @@ class UserBaseSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "department",
+            "is_admin",
         ]
 
     def to_representation(self, instance):
@@ -79,16 +81,17 @@ class UserDetailSerializer(UserBaseSerializer):
 
     class Meta(UserBaseSerializer.Meta):
         fields = UserBaseSerializer.Meta.fields + [
-            "is_admin",
+            # "is_admin",
             "comments",
         ]
 
 
 class UserUpdateSerializer(UserBaseSerializer):
-    class Meta(UserBaseSerializer.Meta):
-        fields = UserBaseSerializer.Meta.fields + [
-            "is_admin",
-        ]
+    # class Meta(UserBaseSerializer.Meta):
+    #     fields = UserBaseSerializer.Meta.fields + [
+    #         "is_admin",
+    #     ]
+    pass
 
 
 class UserCreateSerializer(UserBaseSerializer):
@@ -185,7 +188,7 @@ class TaskSerializer(serializers.ModelSerializer):
     status_display_value = serializers.CharField(
         source="get_status_display", read_only=True
     )
-    comments = CommentSerializer(source="task_comments", many=True, read_only=True)
+    # comments = CommentSerializer(source="task_comments", many=True, read_only=True)
     time_trackers = TimeTrackerSerializer(
         source="time_tracker_tasks", many=True, read_only=True
     )
@@ -215,7 +218,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "user",
             "department",
             "done",
-            "comments",
+            # "comments",
             "created",
             "updated",
         ]
