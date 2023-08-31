@@ -16,6 +16,9 @@ import businesstimedelta
 import holidays as pyholidays
 import rest_framework.renderers
 import drf_standardized_errors
+import kanban.tasks
+
+from celery.schedules import crontab
 from holidays import country_holidays
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -227,3 +230,13 @@ lunch_break = businesstimedelta.LunchTimeRule(
 # holidays = businesstimedelta.HolidayRule(ua_holidays)
 # business_hours = businesstimedelta.Rules([workday, lunch_break, holidays])
 business_hours = businesstimedelta.Rules([workday, lunch_break])
+
+CELERY_BEAT_SCHEDULE = {
+    "update_task_time_in_progress": {
+        "task": "kanban.tasks.update_task_time_in_progress",
+        "schedule": crontab(minute="*/1"),
+    },
+}
+
+CELERY_BROKER_URL = "redis://localhost:6379"
+CELERY_RESULT_BACKEND = "redis://localhost:6379"

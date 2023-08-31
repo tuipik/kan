@@ -102,9 +102,14 @@ class Department(models.Model):
         null=True,
     )
     is_verifier = models.BooleanField(default=False, verbose_name="Перевіряючий відділ")
+    ordering = models.PositiveIntegerField(unique=True, null=True, verbose_name="Номер в черзі відображення")
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        ordering = ["ordering"]
+
 
 
 class YearQuarter(models.IntegerChoices):

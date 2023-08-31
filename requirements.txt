@@ -1,11 +1,17 @@
 aiohttp==3.8.4
 aiosignal==1.3.1
+amqp==5.1.1
 asgiref==3.6.0
 async-timeout==4.0.2
 attrs==23.1.0
+billiard==4.1.0
 businesstimedelta==1.0.1
+celery==5.3.1
 charset-normalizer==3.1.0
 click==8.1.3
+click-didyoumean==0.3.0
+click-plugins==1.1.1
+click-repl==0.3.0
 coverage==7.2.7
 Django==4.2.1
 django-cors-headers==4.1.0
@@ -22,6 +28,7 @@ idna==3.4
 inflection==0.5.1
 iniconfig==2.0.0
 jsonschema==4.17.3
+kombu==5.3.1
 Markdown==3.4.3
 multidict==6.0.4
 mypy-extensions==1.0.0
@@ -29,6 +36,7 @@ packaging==23.1
 pathspec==0.11.1
 platformdirs==3.5.1
 pluggy==1.0.0
+prompt-toolkit==3.0.39
 PyJWT==2.7.0
 pyrsistent==0.19.3
 pytest==7.3.2
@@ -37,8 +45,12 @@ pytest-freezegun==0.4.2
 python-dateutil==2.8.2
 pytz==2023.3
 PyYAML==6.0
+redis==5.0.0
 six==1.16.0
 sqlparse==0.4.4
 tomli==2.0.1
+tzdata==2023.3
 uritemplate==4.1.1
+vine==5.0.0
+wcwidth==0.2.6
 yarl==1.9.2

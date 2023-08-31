@@ -17,7 +17,7 @@ from .utils import TASK_STATUSES_PROGRESS
 class DepartmentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
-        fields = ["id", "name", "is_verifier"]
+        fields = ["id", "name", "is_verifier", "ordering"]
 
 
 class DepartmentSerializer(serializers.ModelSerializer):

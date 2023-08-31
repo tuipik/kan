@@ -47,5 +47,8 @@ def update_time_trackers_hours():
     """
     time_trackers = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS)
     if time_trackers:
+        task_ids = []
         for tracker in time_trackers:
             tracker.save()
+            task_ids.append(tracker.task.id)
+        return f'Updated time for {len(time_trackers)} tasks. Task ids: {task_ids}'
