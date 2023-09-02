@@ -111,7 +111,6 @@ class Department(models.Model):
         ordering = ["ordering"]
 
 
-
 class YearQuarter(models.IntegerChoices):
     FIRST = 1, "Перший"
     SECOND = 2, "Другий"

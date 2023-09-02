@@ -10,12 +10,15 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import datetime
+import os
 from pathlib import Path
 
 import businesstimedelta
 import holidays as pyholidays
 import rest_framework.renderers
 import drf_standardized_errors
+from dotenv import load_dotenv
+
 import kanban.tasks
 
 from celery.schedules import crontab
@@ -24,22 +27,26 @@ from holidays import country_holidays
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
+load_dotenv(dotenv_path=Path(BASE_DIR, "dev_env"))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-3a_)xg#or1ttpiyn8etg=&q&#&lkwx8l&y_$(h#hvgkp1agvjo'
+SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = bool(os.environ.get("DEBUG", default=0))
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS").split(" ")
 
 CORS_ORIGIN_ALLOW_ALL = False
 CORS_ORIGIN_WHITELIST = (
        'http://localhost:3000',
        'http://127.0.0.1:3000',
+       'http://localhost:8000',
+       'http://127.0.0.1:3000',
+       'http://0.0.0.0:8000',
+       'http://0.0.0.0:3000',
 )
 CORS_ALLOW_CREDENTIALS = True
 
@@ -98,9 +105,13 @@ WSGI_APPLICATION = 'kanban.wsgi.application'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": os.environ.get("DB_ENGINE", "django.db.backends.sqlite3"),
+        "NAME": os.environ.get("DB_DATABASE", BASE_DIR / "db.sqlite3"),
+        "USER": os.environ.get("DB_USER", "user"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", "password"),
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("DB_PORT", "5432"),
     }
 }
 
@@ -155,8 +166,6 @@ DRF_STANDARDIZED_ERRORS = {
 REST_AUTH_SERIALIZERS = {
     'USER_DETAILS_SERIALIZER': 'api.serializers.UserDetailSerializer'
 }
-
-
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": datetime.timedelta(days=1),
@@ -234,9 +243,9 @@ business_hours = businesstimedelta.Rules([workday, lunch_break])
 CELERY_BEAT_SCHEDULE = {
     "update_task_time_in_progress": {
         "task": "kanban.tasks.update_task_time_in_progress",
-        "schedule": crontab(minute="*/1"),
+        "schedule": crontab(minute='0', hour='*/1'),
     },
 }
 
-CELERY_BROKER_URL = "redis://localhost:6379"
-CELERY_RESULT_BACKEND = "redis://localhost:6379"
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND")
