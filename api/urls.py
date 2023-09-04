@@ -15,7 +15,7 @@ from .views import (
     DepartmentApiViewSet,
     TaskViewSet,
     CommentViewSet,
-    TimeTrackerViewSet,
+    TimeTrackerViewSet, DefaultsView,
 )
 
 router = DefaultRouter(trailing_slash=False)
@@ -35,4 +35,5 @@ urlpatterns = [
     path("token/create/", TokenObtainPairView.as_view(), name="token_create"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("token/verify/", TokenVerifyView.as_view(), name="token_verify"),
+    path("defaults/", DefaultsView.as_view(), name="defaults"),
 ] + router.urls

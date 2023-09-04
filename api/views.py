@@ -13,6 +13,12 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .CONSTANTS import (
+    TASK_NAME_REGEX,
+    TASK_STATUSES,
+    TIME_TRACKER_STATUSES,
+    YEAR_QUARTERS,
+)
 from .filters import (
     UserFilter,
     TaskFilter,
@@ -35,7 +41,8 @@ from .serializers import (
     CommentSerializer,
     TimeTrackerSerializer,
     UserUpdateSerializer,
-    DepartmentCreateSerializer, UserBaseSerializer,
+    DepartmentCreateSerializer,
+    UserBaseSerializer,
 )
 from .utils import ResponseInfo
 
@@ -301,3 +308,20 @@ class CommentViewSet(ResponseModelViewSet):
     default_serializer_class = CommentSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = CommentFilter
+
+
+class DefaultsView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, format=None):
+        constants = {
+            "TASK_NAME_REGEX": TASK_NAME_REGEX,
+            "TASK_STATUSES": TASK_STATUSES,
+            "TIME_TRACKER_STATUSES": TIME_TRACKER_STATUSES,
+            "YEAR_QUARTERS": YEAR_QUARTERS,
+        }
+        return Response(
+            ResponseInfo(success=True, data=[constants, ]).response,
+            status=status.HTTP_200_OK,
+        )

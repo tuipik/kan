@@ -23,7 +23,7 @@ class DepartmentCreateSerializer(serializers.ModelSerializer):
 class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
-        fields = ["id", "name", "head", "is_verifier"]
+        fields = ["id", "name", "head", "is_verifier", "ordering"]
 
     def save(self):
         if user_id := self.initial_data.get("head"):
