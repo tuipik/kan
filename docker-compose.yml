@@ -58,6 +58,12 @@ services:
       - DEBUG=1
       - SECRET_KEY=django-insecure-3a_)xg#or1ttpiyn8etg=&q&#&lkwx8l&y_$(h#hvgkp1agvjo
       - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 0.0.0.0 [::1]
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=kan_db
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_USER=postgres
+      - DB_PASSWORD=supersecretpassword
       - CELERY_BROKER_URL=redis://redis:6379
       - CELERY_RESULT_BACKEND=redis://redis:6379
     depends_on:
@@ -72,6 +78,12 @@ services:
       - DEBUG=1
       - SECRET_KEY=django-insecure-3a_)xg#or1ttpiyn8etg=&q&#&lkwx8l&y_$(h#hvgkp1agvjo
       - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 0.0.0.0 [::1]
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=kan_db
+      - DB_ENGINE=django.db.backends.postgresql
+      - DB_USER=postgres
+      - DB_PASSWORD=supersecretpassword
       - CELERY_BROKER_URL=redis://redis:6379
       - CELERY_RESULT_BACKEND=redis://redis:6379
     depends_on:
@@ -93,7 +105,7 @@ services:
       - POSTGRES_PASSWORD=supersecretpassword
       - POSTGRES_EXTRA_OPTS=-Z9 --schema=public --blobs
       - SCHEDULE=@daily
-#      - SCHEDULE=@every 0h00m30s
+#      - SCHEDULE=@every 1h00m00s
       - BACKUP_KEEP_DAYS=7
       - BACKUP_KEEP_WEEKS=4
       - BACKUP_KEEP_MONTHS=6

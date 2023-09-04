@@ -257,7 +257,7 @@ class TimeTracker(models.Model):
         self.save()
 
     def save(self, *args, **kwargs):
-        time_now = self.end_time or datetime.now(timezone.utc)
+        time_now = self.end_time or datetime.now()
         if self.start_time:
             self.hours = business_hours.difference(self.start_time, time_now).hours
         super(TimeTracker, self).save(*args, **kwargs)

@@ -281,7 +281,8 @@ class TaskSerializer(serializers.ModelSerializer):
                 self._check_user_for_progress_status()
                 time_tracker.change_status_done()
                 super().save()
-                self.instance.start_time_tracker()
+                if validated_status != TaskStatuses.DONE:
+                    self.instance.start_time_tracker()
                 self.instance.create_log_comment(**comment_data)
                 return self.instance
 
