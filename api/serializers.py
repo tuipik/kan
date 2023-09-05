@@ -31,7 +31,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
             if not user.department or not user.department_id == self.instance.id:
                 raise serializers.ValidationError(
                     {
-                        "head": "To be the head of department user should be the member of department"
+                        "head": "Щоб бути керівником відділу, користувач має бути членом відділу"
                     }
                 )
         super().save()
@@ -232,7 +232,7 @@ class TaskSerializer(serializers.ModelSerializer):
             )
             if tasks_in_progress:
                 raise ValidationError(
-                    f"У користувача {user.username} вже є активна задача {tasks_in_progress[0].name}"
+                    {"user": f"У користувача {user.username} вже є активна задача {tasks_in_progress[0].name}"}
                 )
 
     def _check_user_for_progress_status(self):
@@ -240,8 +240,21 @@ class TaskSerializer(serializers.ModelSerializer):
             "status"
         ) in TASK_STATUSES_PROGRESS and not self.validated_data.get("user"):
             raise ValidationError(
-                "Для переводу задачі в статус 'В роботі' має бути вказаний виконавець"
+                {"user": "Для переводу задачі в статус 'В роботі' має бути вказаний виконавець"}
             )
+
+    def _check_user_is_department_member_of_task_department(self):
+        if (user := self.validated_data.get('user')) and (dep := self.validated_data.get('department')):
+            if user.department_id != dep.id:
+                raise ValidationError(
+                    {"department": "Виконавцем можна призначити тільки користувача з відділу для якого створено задачу"}
+                )
+
+        if (user := self.validated_data.get('user')) and self.instance:
+            if user.department_id != self.instance.department_id:
+                raise ValidationError(
+                    {"department": "Виконавцем можна призначити тільки користувача з відділу для якого створено задачу"}
+                )
 
     def _create_log_data(self):
         data = {
@@ -267,6 +280,7 @@ class TaskSerializer(serializers.ModelSerializer):
     def save(self, **kwargs):
         comment_data = self._create_log_data()
         self.check_user_has_only_one_task_in_progress()
+        self._check_user_is_department_member_of_task_department()
         if not self.instance:
             super().save()
             self.instance.start_time_tracker()
