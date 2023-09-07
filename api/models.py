@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 from django.contrib.auth.models import (
     BaseUserManager,
@@ -102,7 +102,9 @@ class Department(models.Model):
         null=True,
     )
     is_verifier = models.BooleanField(default=False, verbose_name="Перевіряючий відділ")
-    ordering = models.PositiveIntegerField(unique=True, null=True, verbose_name="Номер в черзі відображення")
+    ordering = models.PositiveIntegerField(
+        unique=True, null=True, verbose_name="Номер в черзі відображення"
+    )
 
     def __str__(self):
         return self.name
@@ -116,6 +118,14 @@ class YearQuarter(models.IntegerChoices):
     SECOND = 2, "Другий"
     THIRD = 3, "Третій"
     FOURTH = 4, "Четвертий"
+
+
+class TaskScales(models.IntegerChoices):
+    TWENTY_FIVE = 25, "1:25 000"
+    FIFTY = 50, "1:50 000"
+    ONE_HUNDRED = 100, "1:100 000"
+    TWO_HUNDRED = 200, "1:200 000"
+    FIVE_HUNDRED = 500, "1:500 000"
 
 
 class TaskStatuses(models.TextChoices):
@@ -146,12 +156,18 @@ class Task(models.Model):
         default=TaskStatuses.WAITING,
         verbose_name="Статус",
     )
+    scale = models.IntegerField(
+        choices=TaskScales.choices,
+        default=TaskScales.FIFTY,
+        verbose_name="Масштаб",
+    )
     created = models.DateTimeField(auto_now_add=True, verbose_name="Створено")
     updated = models.DateTimeField(auto_now=True, verbose_name="Оновлено")
     done = models.DateTimeField(blank=True, null=True, verbose_name="Завершено")
     quarter = models.IntegerField(
         choices=YearQuarter.choices, blank=True, verbose_name="Квартал"
     )
+    year = models.PositiveIntegerField(default=date.today().year)
     category = models.CharField(max_length=255, verbose_name="Категорія")
     user = models.ForeignKey(
         "User",
@@ -166,6 +182,12 @@ class Task(models.Model):
         on_delete=models.PROTECT,
         related_name="task_departments",
         verbose_name="Відділ",
+    )
+    primary_department = models.ForeignKey(
+        "Department",
+        on_delete=models.PROTECT,
+        related_name="task_primary_departments",
+        verbose_name="Початковий відділ",
     )
 
     def __str__(self):
@@ -207,6 +229,13 @@ class Task(models.Model):
         return Comment.objects.create(
             task=self, user=log_user, body=log_text, is_log=is_log
         )
+
+    @staticmethod
+    def check_year_is_correct(year):
+        years_before = date.today().year - 3
+        years_after = date.today().year + 5
+        if year not in range(years_before, years_after+1):
+            raise AssertionError({'year': f"Рік має бути в діапазоні від {years_before} до {years_after}."})
 
 
 class TimeTrackerStatuses(models.TextChoices):

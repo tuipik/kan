@@ -32,6 +32,7 @@ def test_CRUD_tasks_ok(api_client, super_user):
         "category": "some category",
         "user": user.data.get("data")[0].get("id"),
         "department": department_id,
+        "primary_department": department_id,
     }
 
     # test create
@@ -50,6 +51,7 @@ def test_CRUD_tasks_ok(api_client, super_user):
     # test put
     task_obj_id = all_tasks.data.get("data")[0].get("id")
     task_data["name"] = "M-36-80-А"
+    task_data["primary_department"] = task_data["department"]
 
     result = api_client.put(
         reverse("task-detail", kwargs={"pk": task_obj_id}),

@@ -17,7 +17,7 @@ from .CONSTANTS import (
     TASK_NAME_REGEX,
     TASK_STATUSES,
     TIME_TRACKER_STATUSES,
-    YEAR_QUARTERS,
+    YEAR_QUARTERS, TASK_SCALES,
 )
 from .filters import (
     UserFilter,
@@ -255,6 +255,11 @@ class TaskViewSet(ResponseModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_class = TaskFilter
 
+    def create(self, request, *args, **kwargs):
+        if (dep := self.request.data.get('department')) and not self.request.data.get('primary_department'):
+            self.request.data.update({'primary_department': dep})
+        return super().create(request, *args, **kwargs)
+
     def get_permissions(self):
         if self.action in [
             "list",
@@ -272,7 +277,7 @@ class TaskViewSet(ResponseModelViewSet):
         if current_user.is_admin or current_user.department.is_verifier:
             return Task.objects.all()
         else:
-            return Task.objects.filter(department_id=current_user.department.id)
+            return Task.objects.filter(primary_department_id=current_user.department.id)
 
 
 class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
@@ -318,6 +323,7 @@ class DefaultsView(APIView):
         constants = {
             "TASK_NAME_REGEX": TASK_NAME_REGEX,
             "TASK_STATUSES": TASK_STATUSES,
+            "TASK_SCALES": TASK_SCALES,
             "TIME_TRACKER_STATUSES": TIME_TRACKER_STATUSES,
             "YEAR_QUARTERS": YEAR_QUARTERS,
         }

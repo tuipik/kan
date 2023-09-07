@@ -1,4 +1,4 @@
-from api.models import TaskStatuses, TimeTrackerStatuses, YearQuarter
+from api.models import TaskStatuses, TimeTrackerStatuses, YearQuarter, TaskScales
 
 TASK_NAME_REGEX = {
     #   Розбір regular expression: '\p{L}-\p{N}{2}-\p{N}{1,3}-\p{L}(?![\p{L}\p{N}\-])'
@@ -15,5 +15,6 @@ TASK_NAME_REGEX = {
 }
 
 TASK_STATUSES = {status.value: status.label for status in TaskStatuses}
+TASK_SCALES = {scale.value: scale.label for scale in TaskScales}
 TIME_TRACKER_STATUSES = {status.value: status.label for status in TimeTrackerStatuses}
 YEAR_QUARTERS = {quarter.value: quarter.label for quarter in YearQuarter}

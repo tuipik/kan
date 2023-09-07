@@ -31,6 +31,7 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
         "category": "some category",
         "user": user.data.get("data")[0].get("id"),
         "department": department_id,
+        "primary_department": department_id,
     }
 
     task = api_client.post(reverse("task-list"), data=task_data)

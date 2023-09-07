@@ -182,11 +182,17 @@ class TaskSerializer(serializers.ModelSerializer):
     department = serializers.PrimaryKeyRelatedField(
         queryset=Department.objects.all(), allow_null=True, many=False, label="Відділ"
     )
+    primary_department = serializers.PrimaryKeyRelatedField(
+        queryset=Department.objects.all(), allow_null=True, many=False, label="Початковий відділ"
+    )
     quarter_display_value = serializers.CharField(
         source="get_quarter_display", read_only=True
     )
     status_display_value = serializers.CharField(
         source="get_status_display", read_only=True
+    )
+    scale_display_value = serializers.CharField(
+        source="get_scale_display", read_only=True
     )
     # comments = CommentSerializer(source="task_comments", many=True, read_only=True)
     time_trackers = TimeTrackerSerializer(
@@ -211,12 +217,16 @@ class TaskSerializer(serializers.ModelSerializer):
             "otk_time_done",
             "status",
             "status_display_value",
+            "scale",
+            "scale_display_value",
             "time_trackers",
             "quarter",
             "quarter_display_value",
+            "year",
             "category",
             "user",
             "department",
+            "primary_department",
             "done",
             # "comments",
             "created",
@@ -281,6 +291,10 @@ class TaskSerializer(serializers.ModelSerializer):
         comment_data = self._create_log_data()
         self.check_user_has_only_one_task_in_progress()
         self._check_user_is_department_member_of_task_department()
+
+        if year := self.validated_data.get("year"):
+            Task.check_year_is_correct(year=year)
+
         if not self.instance:
             super().save()
             self.instance.start_time_tracker()
