@@ -254,14 +254,14 @@ class TaskSerializer(serializers.ModelSerializer):
             )
 
     def _check_user_is_department_member_of_task_department(self):
-        if (user := self.validated_data.get('user')) and (dep := self.validated_data.get('department')):
-            if user.department_id != dep.id:
+        if (user := self.validated_data.get('user')) and (pr_dep := self.validated_data.get('primary_department')):
+            if user.department_id != pr_dep.id:
                 raise ValidationError(
                     {"department": "Виконавцем можна призначити тільки користувача з відділу для якого створено задачу"}
                 )
 
         if (user := self.validated_data.get('user')) and self.instance:
-            if user.department_id != self.instance.department_id:
+            if user.department_id != self.instance.primary_department_id:
                 raise ValidationError(
                     {"department": "Виконавцем можна призначити тільки користувача з відділу для якого створено задачу"}
                 )
@@ -280,8 +280,14 @@ class TaskSerializer(serializers.ModelSerializer):
         elif self.context["request"].method in ["PUT", "PATCH"]:
             change_list = []
             for key, value in self.validated_data.items():
+                if key == "status":
+                    text = TaskStatuses[value].label
+                elif key == "user":
+                    text = f"{value.last_name} {value.first_name}"
+                else:
+                    text = value
                 change_list.append(
-                    f'{self.fields.fields.get(key).label} - {TaskStatuses[value].label if key == "status" else value}'
+                    f'{self.fields.fields.get(key).label} - {text}'
                 )
             data["log_text"] = f'Внесено зміни: {", ".join(change_list)}'
             data["is_log"] = True
