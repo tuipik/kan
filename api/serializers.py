@@ -17,13 +17,13 @@ from .utils import TASK_STATUSES_PROGRESS
 class DepartmentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
-        fields = ["id", "name", "is_verifier", "ordering"]
+        fields = ["id", "name", "is_verifier"]
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
-        fields = ["id", "name", "head", "is_verifier", "ordering"]
+        fields = ["id", "name", "head", "is_verifier"]
 
     def save(self):
         if user_id := self.initial_data.get("head"):
@@ -55,6 +55,7 @@ class UserBaseSerializer(serializers.ModelSerializer):
     department = serializers.PrimaryKeyRelatedField(
         queryset=Department.objects.all(), allow_null=True, many=False, label="Відділ"
     )
+    is_head_department = serializers.BooleanField(default=False, read_only=True)
 
     class Meta:
         model = User
@@ -65,6 +66,7 @@ class UserBaseSerializer(serializers.ModelSerializer):
             "last_name",
             "department",
             "is_admin",
+            "is_head_department"
         ]
 
     def to_representation(self, instance):
@@ -77,13 +79,13 @@ class UserBaseSerializer(serializers.ModelSerializer):
 
 
 class UserDetailSerializer(UserBaseSerializer):
-    comments = CommentSerializer(source="user_comments", allow_null=True, many=True)
-
-    class Meta(UserBaseSerializer.Meta):
-        fields = UserBaseSerializer.Meta.fields + [
-            # "is_admin",
-            "comments",
-        ]
+    # comments = CommentSerializer(source="user_comments", allow_null=True, many=True)
+    # class Meta(UserBaseSerializer.Meta):
+    #     fields = UserBaseSerializer.Meta.fields + [
+    #         "is_admin",
+    #         "comments",
+    #     ]
+    pass
 
 
 class UserUpdateSerializer(UserBaseSerializer):
@@ -194,7 +196,6 @@ class TaskSerializer(serializers.ModelSerializer):
     scale_display_value = serializers.CharField(
         source="get_scale_display", read_only=True
     )
-    # comments = CommentSerializer(source="task_comments", many=True, read_only=True)
     time_trackers = TimeTrackerSerializer(
         source="time_tracker_tasks", many=True, read_only=True
     )
@@ -228,7 +229,6 @@ class TaskSerializer(serializers.ModelSerializer):
             "department",
             "primary_department",
             "done",
-            # "comments",
             "created",
             "updated",
         ]
@@ -282,7 +282,7 @@ class TaskSerializer(serializers.ModelSerializer):
             for key, value in self.validated_data.items():
                 if key == "status":
                     text = TaskStatuses[value].label
-                elif key == "user":
+                elif key == "user" and value:
                     text = f"{value.last_name} {value.first_name}"
                 else:
                     text = value
