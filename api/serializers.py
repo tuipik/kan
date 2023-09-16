@@ -184,9 +184,7 @@ class TaskSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), allow_null=True, many=False, label="Відповідальний"
     )
-    department = serializers.PrimaryKeyRelatedField(
-        queryset=Department.objects.all(), allow_null=True, many=False, label="Відділ"
-    )
+    user_obj = UserBaseSerializer(source="user", read_only=True)
     primary_department = serializers.PrimaryKeyRelatedField(
         queryset=Department.objects.all(),
         allow_null=True,
@@ -201,9 +199,6 @@ class TaskSerializer(serializers.ModelSerializer):
     )
     scale_display_value = serializers.CharField(
         source="get_scale_display", read_only=True
-    )
-    time_trackers = TimeTrackerSerializer(
-        source="time_tracker_tasks", many=True, read_only=True
     )
     change_time_done = serializers.IntegerField(read_only=True)
     correct_time_done = serializers.IntegerField(read_only=True)
@@ -229,12 +224,12 @@ class TaskSerializer(serializers.ModelSerializer):
             "status",
             "scale",
             "scale_display_value",
-            "time_trackers",
             "quarter",
             "quarter_display_value",
             "year",
             "category",
             "user",
+            "user_obj",
             "department",
             "primary_department",
             "done",
@@ -364,9 +359,3 @@ class TaskSerializer(serializers.ModelSerializer):
         super().save()
         self.instance.create_log_comment(**comment_data)
         return self.instance
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation["user"] = UserBaseSerializer(instance.user).data
-        representation["department"] = DepartmentSerializer(instance.department).data
-        return representation
