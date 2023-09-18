@@ -1,6 +1,7 @@
 from datetime import datetime, date
 from enum import Enum
 
+import regex
 from django.contrib.auth.models import (
     BaseUserManager,
     AbstractBaseUser,
@@ -9,6 +10,7 @@ from django.contrib.auth.models import (
 from django.db import models
 from django.db.models import Sum
 
+from api.CONSTANTS import TASK_NAME_REGEX, TASK_NAME_POSSIBLE_LETTERS
 from kanban.settings import business_hours
 
 
@@ -282,6 +284,28 @@ class Task(models.Model):
                     "year": f"Рік має бути в діапазоні від {years_before} до {years_after}."
                 }
             )
+
+    def _check_name_letters(self, name: str):
+        errors = []
+        possible_errors = {
+            0: "Перша літера назви має бути латинкою у верхньому регістрі",
+            1: "Літера, яка відповідає за масштаб 50 000 має бути кирилична у верхньому регістрі",
+            2: "Літера, яка відповідає за масштаб 25 000 має бути кирилична у нижньому регістрі"
+        }
+        splited_name = name.split('-')
+        letters = [letter for letter in splited_name if letter.isalpha()]
+        letter_index_to_letter_scale = {0: 'latitude', 1: 50, 2: 25}
+        for ind, letter in enumerate(letters):
+            if letter not in TASK_NAME_POSSIBLE_LETTERS.get(letter_index_to_letter_scale.get(ind)):
+               errors.append(possible_errors.get(ind))
+
+    def name_corresponded_to_scale(self, raw_name: str = "", scale: int = 50) -> str:
+        name = raw_name.strip()
+        checked_name = regex.match(pattern=TASK_NAME_REGEX.get(scale), string=name)
+        if not checked_name:
+            raise ValueError("Назва задачі не відповідає правилам написання номенклатури для даного масштабу")
+
+        return name
 
 
 class TimeTrackerStatuses(models.TextChoices):
