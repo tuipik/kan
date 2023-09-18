@@ -268,12 +268,12 @@ class TaskViewSet(ResponseModelViewSet):
 
     def update(self, request, *args, **kwargs):
         if stat_id := self.request.data.get("status"):
-            department = Department.objects.filter(statuses=stat_id)
+            department = Department.objects.filter(status=stat_id)
             if department.count() == 1:
-                request.data.update({"department": department[0].id})
+                self.request.data.update({"department": department[0].id})
             else:
                 instance = self.get_object()
-                request.data.update({"department": instance.primary_department_id})
+                self.request.data.update({"department": instance.primary_department_id})
         return super().update(request, *args, **kwargs)
 
     def get_permissions(self):

@@ -22,17 +22,17 @@ class StatusSerializer(serializers.ModelSerializer):
 class DepartmentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
-        fields = ["id", "name", "is_verifier", "statuses"]
+        fields = ["id", "name", "is_verifier", "status"]
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
-    statuses = serializers.PrimaryKeyRelatedField(
+    status = serializers.PrimaryKeyRelatedField(
         many=True, queryset=Status.objects.all()
     )
 
     class Meta:
         model = Department
-        fields = ["id", "name", "head", "is_verifier", "statuses"]
+        fields = ["id", "name", "head", "is_verifier", "status"]
 
     def save(self):
         if user_id := self.initial_data.get("head"):
@@ -241,7 +241,7 @@ class TaskSerializer(serializers.ModelSerializer):
         if (user := self.validated_data.get("user")) and self.validated_data.get(
             "status"
         ).id in Status.STATUSES_PROGRESS_IDS():
-            tasks_in_progress = user.user_tasks.filter(
+            tasks_in_progress = user.task_users.filter(
                 status__in=Status.STATUSES_PROGRESS_IDS()
             )
             if tasks_in_progress.count() > 0 and any(
@@ -341,7 +341,7 @@ class TaskSerializer(serializers.ModelSerializer):
                 self.instance.create_log_comment(**comment_data)
                 return self.instance
 
-            time_tracker = self.instance.task_time_trackers.get(
+            time_tracker = self.instance.time_tracker_tasks.get(
                 task__id=self.instance.id, status=TimeTrackerStatuses.IN_PROGRESS
             )
             if validated_status != time_tracker.task_status:

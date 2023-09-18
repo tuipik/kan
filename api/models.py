@@ -62,7 +62,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     department = models.ForeignKey(
         "Department",
         on_delete=models.SET_NULL,
-        related_name="users",
+        related_name="user_departments",
         verbose_name="Відділ",
         blank=True,
         null=True,
@@ -94,7 +94,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class Status(models.Model):
     name = models.CharField(max_length=255, unique=True, verbose_name="Статус")
-    translation = models.CharField(max_length=255, unique=True, verbose_name="Переклад")
+    translation = models.CharField(max_length=255, null=True, verbose_name="Переклад")
 
     @classmethod
     def STATUSES_PROGRESS_IDS(cls) -> list:
@@ -132,14 +132,14 @@ class Department(models.Model):
     head = models.ForeignKey(
         "User",
         on_delete=models.SET_NULL,
-        related_name="deparment_head",
+        related_name="head_users",
         verbose_name="Керівник",
         blank=True,
         null=True,
     )
     is_verifier = models.BooleanField(default=False, verbose_name="Перевіряючий відділ")
-    statuses = models.ManyToManyField(
-        Status, related_name="departments", verbose_name="Статуси"
+    status = models.ManyToManyField(
+        Status, related_name="department_status", verbose_name="Статус"
     )
 
     def __str__(self):
@@ -188,8 +188,9 @@ class Task(models.Model):
     status = models.ForeignKey(
         "Status",
         on_delete=models.PROTECT,
-        related_name="tasks",
+        related_name="task_status",
         verbose_name="Статус",
+        null=True,
     )
     scale = models.IntegerField(
         choices=TaskScales.choices,
@@ -207,7 +208,7 @@ class Task(models.Model):
     user = models.ForeignKey(
         "User",
         on_delete=models.SET_NULL,
-        related_name="user_tasks",
+        related_name="task_users",
         verbose_name="Відповідальний",
         blank=True,
         null=True,
@@ -215,14 +216,14 @@ class Task(models.Model):
     department = models.ForeignKey(
         "Department",
         on_delete=models.PROTECT,
-        related_name="department_tasks",
+        related_name="task_departments",
         verbose_name="Відділ",
     )
     primary_department = models.ForeignKey(
         "Department",
         null=True,
         on_delete=models.PROTECT,
-        related_name="primary_department_tasks",
+        related_name="task_primary_departments",
         verbose_name="Початковий відділ",
     )
 
@@ -231,24 +232,24 @@ class Task(models.Model):
 
     @property
     def change_time_done(self):
-        hours_sum = self.task_time_trackers.filter(
+        hours_sum = self.time_tracker_tasks.filter(
             task_status=Status.objects.get(name=BaseStatuses.IN_PROGRESS.name).id
         ).aggregate(total_hours=Sum("hours"))
-        return hours_sum.get("total_hours") or 0
+        return hours_sum.get("total_hours", 0) or 0
 
     @property
     def correct_time_done(self):
-        hours_sum = self.task_time_trackers.filter(
+        hours_sum = self.time_tracker_tasks.filter(
             task_status=Status.objects.get(name=BaseStatuses.CORRECTING.name).id
         ).aggregate(total_hours=Sum("hours"))
-        return hours_sum.get("total_hours") or 0
+        return hours_sum.get("total_hours", 0) or 0
 
     @property
     def otk_time_done(self):
-        hours_sum = self.task_time_trackers.filter(
+        hours_sum = self.time_tracker_tasks.filter(
             task_status=Status.objects.get(name=BaseStatuses.VTK.name).id
         ).aggregate(total_hours=Sum("hours"))
-        return hours_sum.get("total_hours") or 0
+        return hours_sum.get("total_hours", 0) or 0
 
     def start_time_tracker(self):
         data = {
@@ -293,13 +294,13 @@ class TimeTracker(models.Model):
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
-        related_name="task_time_trackers",
+        related_name="time_tracker_tasks",
         verbose_name="Задача",
     )
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="user_time_trackers",
+        related_name="time_tracker_users",
         verbose_name="Виконавець",
         null=True,
         blank=True,
@@ -318,8 +319,9 @@ class TimeTracker(models.Model):
     task_status = models.ForeignKey(
         "Status",
         on_delete=models.PROTECT,
-        related_name="time_trackers",
+        related_name="time_tracker_task_status",
         verbose_name="Статус задачі",
+        null=True,
     )
 
     def __str__(self):
