@@ -1,11 +1,14 @@
 import pytest
 from rest_framework.reverse import reverse
 
+from helpers import fill_up_statuses
 from conftest import default_user_data, create_user_with_department
 
 
 @pytest.mark.django_db
 def test_CRUD_accounts_ok(api_client, super_user):
+    fill_up_statuses()
+
     default_user_num = 2
     all_users_num = default_user_num + 1
 
@@ -83,6 +86,8 @@ def test_CRUD_accounts_ok(api_client, super_user):
 
 @pytest.mark.django_db
 def test_not_admin(api_client):
+    fill_up_statuses()
+
     users_data = default_user_data(2)
     user_1_data = next(users_data)
     user, department = create_user_with_department(user_1_data)
@@ -98,6 +103,8 @@ def test_not_admin(api_client):
 
 @pytest.mark.django_db
 def test_not_authenticated(api_client):
+    fill_up_statuses()
+
     users_data = default_user_data(2)
     all_users_resp = api_client.get(reverse("account-list"))
     user_1_resp = api_client.post(reverse("account-list"), data=next(users_data))

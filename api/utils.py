@@ -1,21 +1,7 @@
 from drf_standardized_errors.formatter import ExceptionFormatter
 from drf_standardized_errors.types import ErrorResponse
 
-from api.models import TaskStatuses, TimeTracker, TimeTrackerStatuses
-
-TASK_STATUSES_PROGRESS = [
-    TaskStatuses.IN_PROGRESS,
-    TaskStatuses.CORRECTING,
-    TaskStatuses.OTK,
-]
-
-TASK_STATUSES_IDLE = [
-    TaskStatuses.WAITING,
-    TaskStatuses.CORRECTING_QUEUE,
-    TaskStatuses.OTK_QUEUE,
-    TaskStatuses.STOPPED,
-    TaskStatuses.DONE,
-]
+from api.models import TimeTracker, TimeTrackerStatuses
 
 
 class ResponseInfo(object):

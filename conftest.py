@@ -46,7 +46,7 @@ def create_default_user(user_data) -> User:
 
 
 def create_department(name="DEFAULT_DEP") -> [Department, bool]:
-    return Department.objects.get_or_create(name=name)
+    return Department.objects.get_or_create(name=name, status=[1, 2])
 
 
 def create_user_with_department(
@@ -85,5 +85,6 @@ def create_time_tracker(task: Task, user: User) -> TimeTracker:
     data = {
         "task": task,
         "user": user,
+        "task_status": 1
     }
     return TimeTracker.objects.create(**data)
