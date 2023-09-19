@@ -12,6 +12,7 @@ class UserFilter(django_filters.FilterSet):
             "last_name": ["exact", "contains", "icontains"],
             "department__id": ["exact"],
             "department__name": ["exact", "contains", "icontains"],
+            "department__statuses__id": ["exact", "contains", "icontains"],
             "is_active": ["exact"],
         }
 

@@ -1,18 +1,29 @@
 from django.core.management.base import BaseCommand
 
-from api.models import Status, BaseStatuses, User, Department, Task, TimeTracker, Comment, UserManager
+from api.models import (
+    Status,
+    BaseStatuses,
+    User,
+    Department,
+    Task,
+    TimeTracker,
+    Comment,
+)
 
 
 class Command(BaseCommand):
     """Django command to fill up develop db"""
+
     def create_user(self, dep, num):
-        return User.objects.create_user(
+        user = User.objects.create_user(
             username=f"user_{dep.name}_{num}",
             first_name=f"First_name_{dep.name}_{num}",
             last_name=f"Last_name_{dep.name}_{num}",
             password="qwerty",
             department=dep,
         )
+        self.stdout.write(f"Created user: {user.username}")
+        return user
 
     def create_departments(self):
         deps = [
@@ -28,10 +39,12 @@ class Command(BaseCommand):
             user_2 = self.create_user(department, 2)
             department.head = user_1
             department.save()
+            self.stdout.write(f"Created department: {department.name}")
 
     def create_tasks(self):
-        user = User.objects.filter(department__name='Dep_1').last()
+        user = User.objects.filter(department__name="Dep_1").last()
         status = Status.objects.get(name=BaseStatuses.WAITING.name)
+        department = Department.objects.get(name="Dep_1")
         for i in range(1, 4):
             task = Task.objects.create(
                 **{
@@ -42,24 +55,25 @@ class Command(BaseCommand):
                     "quarter": 1,
                     "category": "some_cat",
                     "user": user,
-                    "department": Department.objects.get(name="Dep_1"),
+                    "department": department,
+                    "primary_department": department,
                     "year": 2023,
-                    "status": status
+                    "status": status,
                 }
             )
             TimeTracker.objects.create(
-                task=task,
-                user=User.objects.first(),
-                task_status=status
+                task=task, user=User.objects.first(), task_status=status
             )
             Comment.objects.create(
                 task=task,
                 user=User.objects.first(),
                 body=f"Створено задачу {task.name}",
-                is_log=True
+                is_log=True,
             )
+            self.stdout.write(f"Created task: {task.name}")
 
     def handle(self, *args, **options):
         self.stdout.write("Start fill up db")
         self.create_departments()
         self.create_tasks()
+        self.stdout.write("Done")

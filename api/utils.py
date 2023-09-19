@@ -43,12 +43,12 @@ def update_time_trackers_hours():
 
 
 def fill_up_statuses(*args, **options):
-    stdout.write('Start checking and adding statuses to db')
+    stdout.write('Start checking and adding statuses to db\n')
     any_created = False
     for status in BaseStatuses:
         instance, created = Status.objects.get_or_create(name=status.name, translation=status.value)
         if created:
-            stdout.write(f'Added a new status: {status.name}')
+            stdout.write(f'Added a new status: {status.name}\n')
             any_created = True
     if not any_created:
-        stdout.write(f'Any new status was added')
+        stdout.write(f'Any new status was added\n')

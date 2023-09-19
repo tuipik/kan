@@ -256,21 +256,23 @@ class TaskViewSet(ResponseModelViewSet):
     filterset_class = TaskFilter
 
     def create(self, request, *args, **kwargs):
-        if (dep := self.request.data.get("department")) and not self.request.data.get(
+        if (dep := request.data.get("department")) and not request.data.get(
             "primary_department"
         ):
-            self.request.data.update({"primary_department": dep})
+            request.data.update({"primary_department": dep})
 
-        self.request.data.update(
+        request.data.update(
             {"status": Status.objects.get(name=BaseStatuses.WAITING.name).id}
         )
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
-        if stat_id := self.request.data.get("status"):
+        if stat_id := request.data.get("status"):
             department = Department.objects.filter(statuses=stat_id)
             if department.count() == 1:
                 request.data.update({"department": department[0].id})
+                if not request.data.get("user"):
+                    request.data.update({"user": None})
             else:
                 instance = self.get_object()
                 request.data.update({"department": instance.primary_department_id})

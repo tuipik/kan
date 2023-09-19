@@ -65,9 +65,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
 
 class UserBaseSerializer(serializers.ModelSerializer):
-    department = serializers.PrimaryKeyRelatedField(
-        queryset=Department.objects.all(), allow_null=True, many=False, label="Відділ"
-    )
+    department_obj = DepartmentSerializer(source="department", read_only=True)
     is_head_department = serializers.BooleanField(default=False, read_only=True)
 
     class Meta:
@@ -78,17 +76,10 @@ class UserBaseSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "department",
+            "department_obj",
             "is_admin",
             "is_head_department",
         ]
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        if isinstance(instance, User):
-            representation["department"] = DepartmentSerializer(
-                instance.department
-            ).data
-        return representation
 
 
 class UserDetailSerializer(UserBaseSerializer):
@@ -174,29 +165,17 @@ class TimeTrackerSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ("start_time", "hours")
 
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation["user"] = UserBaseSerializer(instance.user).data
-        return representation
-
 
 class TaskSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), allow_null=True, many=False, label="Відповідальний"
     )
     user_obj = UserBaseSerializer(source="user", read_only=True)
-    primary_department = serializers.PrimaryKeyRelatedField(
-        queryset=Department.objects.all(),
-        allow_null=True,
-        many=False,
-        label="Початковий відділ",
-    )
+    department_obj = DepartmentSerializer(source="department", read_only=True)
     quarter_display_value = serializers.CharField(
         source="get_quarter_display", read_only=True
     )
-    status = serializers.PrimaryKeyRelatedField(
-        queryset=Status.objects.all(), many=False, label="Статус"
-    )
+    status_obj = StatusSerializer(source="status", read_only=True)
     scale_display_value = serializers.CharField(
         source="get_scale_display", read_only=True
     )
@@ -222,6 +201,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "otk_time_estimate",
             "otk_time_done",
             "status",
+            "status_obj",
             "scale",
             "scale_display_value",
             "quarter",
@@ -231,6 +211,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "user",
             "user_obj",
             "department",
+            "department_obj",
             "primary_department",
             "done",
             "created",
@@ -254,14 +235,18 @@ class TaskSerializer(serializers.ModelSerializer):
                 )
 
     def _check_user_for_progress_status(self):
-        if self.validated_data.get(
-            "status"
-        ).id in Status.STATUSES_PROGRESS_IDS() and not self.validated_data.get("user"):
-            raise ValidationError(
-                {
-                    "user": "Для переводу задачі в статус 'В роботі' має бути вказаний виконавець"
-                }
-            )
+        if (
+            stat := self.validated_data.get("status").id
+        ) in Status.STATUSES_PROGRESS_IDS() and not self.validated_data.get("user"):
+            if not self.instance.user or (
+                self.instance.user
+                and not self.instance.user.department.statuses.filter(id=stat)
+            ):
+                raise ValidationError(
+                    {
+                        "user": "Для переводу задачі в статус 'В роботі' має бути вказаний виконавець"
+                    }
+                )
 
     def _check_user_is_department_member_of_task_department(self):
         user = self.validated_data.get("user")
@@ -282,7 +267,12 @@ class TaskSerializer(serializers.ModelSerializer):
                     }
                 )
 
-        if not user and self.instance and department:
+        if (
+            not user
+            and "user" not in self.validated_data
+            and self.instance
+            and department
+        ):
             if self.instance.user:
                 if self.instance.user.department_id != department.id:
                     raise ValidationError(
