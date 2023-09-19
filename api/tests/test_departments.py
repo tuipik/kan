@@ -1,7 +1,7 @@
 import pytest
 from rest_framework.reverse import reverse
 
-from helpers import fill_up_statuses
+from api.utils import fill_up_statuses
 
 
 @pytest.mark.django_db

@@ -1,7 +1,9 @@
+from sys import stdout
+
 from drf_standardized_errors.formatter import ExceptionFormatter
 from drf_standardized_errors.types import ErrorResponse
 
-from api.models import TimeTracker, TimeTrackerStatuses
+from api.models import TimeTracker, TimeTrackerStatuses, BaseStatuses, Status
 
 
 class ResponseInfo(object):
@@ -38,3 +40,15 @@ def update_time_trackers_hours():
             tracker.save()
             task_ids.append(tracker.task.id)
         return f'Updated time for {len(time_trackers)} tasks. Task ids: {task_ids}'
+
+
+def fill_up_statuses(*args, **options):
+    stdout.write('Start checking and adding statuses to db')
+    any_created = False
+    for status in BaseStatuses:
+        instance, created = Status.objects.get_or_create(name=status.name, translation=status.value)
+        if created:
+            stdout.write(f'Added a new status: {status.name}')
+            any_created = True
+    if not any_created:
+        stdout.write(f'Any new status was added')
