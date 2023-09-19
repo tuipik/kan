@@ -3,7 +3,7 @@ import pytest
 from rest_framework.reverse import reverse
 
 from api.models import TimeTracker, TimeTrackerStatuses, Status
-from helpers import fill_up_statuses
+from api.utils import fill_up_statuses
 from conftest import create_user_with_department, create_task, default_user_data
 from kanban.settings import workday_time, launch_time
 
