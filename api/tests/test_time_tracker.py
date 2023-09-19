@@ -3,7 +3,7 @@ import datetime
 import pytest
 from rest_framework.reverse import reverse
 
-from api.models import TimeTrackerStatuses, TimeTracker
+from api.models import TimeTrackerStatuses, TimeTracker, BaseStatuses, Status
 from api.utils import fill_up_statuses
 
 
@@ -14,7 +14,8 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
 
     api_client.force_authenticate(super_user)
 
-    department_data = {"name": "test_department"}
+    statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
+    department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
     department = api_client.post(reverse("department-list"), data=department_data)
     assert department.data.get("success")
 
@@ -37,7 +38,7 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
         "primary_department": department_id,
     }
 
-    task = api_client.post(reverse("task-list"), data=task_data)
+    task = api_client.post(reverse("task-list"), data=task_data, format='json')
     assert task.data.get("success")
     task_id = task.data.get("data")[0].get("id")
 
@@ -47,6 +48,7 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
     time_tracker_data = {
         "task": task_id,
         "user": user.data.get("data")[0].get("id"),
+        'task_status': task.data['data'][0]['status'],
     }
 
     result = api_client.post(reverse("time_tracker-list"), data=time_tracker_data)
