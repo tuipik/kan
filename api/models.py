@@ -1,4 +1,5 @@
-from datetime import datetime, timezone, date
+from datetime import datetime, date
+from enum import Enum
 
 from django.contrib.auth.models import (
     BaseUserManager,
@@ -61,7 +62,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     department = models.ForeignKey(
         "Department",
         on_delete=models.SET_NULL,
-        related_name="user_departments",
+        related_name="users",
         verbose_name="Відділ",
         blank=True,
         null=True,
@@ -91,20 +92,61 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.is_admin
 
 
+class Status(models.Model):
+    name = models.CharField(max_length=255, unique=True, verbose_name="Статус")
+    translation = models.CharField(max_length=255, unique=True, verbose_name="Переклад")
+
+    @classmethod
+    def STATUSES_PROGRESS_IDS(cls) -> list:
+        return [
+            stat.id
+            for stat in cls.objects.filter(
+                name__in=[
+                    BaseStatuses.IN_PROGRESS.name,
+                    BaseStatuses.CORRECTING.name,
+                    BaseStatuses.VTK.name,
+                ]
+            )
+        ]
+
+    @classmethod
+    def STATUSES_IDLE_IDS(cls) -> list:
+        return [
+            stat.id
+            for stat in cls.objects.filter(
+                name__in=[
+                    BaseStatuses.WAITING.name,
+                    BaseStatuses.CORRECTING_QUEUE.name,
+                    BaseStatuses.VTK_QUEUE.name,
+                ]
+            )
+        ]
+
+    @classmethod
+    def STATUS_DONE_ID(cls) -> int:
+        return cls.objects.get(name=BaseStatuses.DONE.name).id
+
+
 class Department(models.Model):
     name = models.CharField(max_length=255, unique=True, verbose_name="Відділ")
     head = models.ForeignKey(
         "User",
         on_delete=models.SET_NULL,
-        related_name="head_users",
+        related_name="deparment_head",
         verbose_name="Керівник",
         blank=True,
         null=True,
     )
     is_verifier = models.BooleanField(default=False, verbose_name="Перевіряючий відділ")
+    statuses = models.ManyToManyField(
+        Status, related_name="departments", verbose_name="Статуси"
+    )
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        ordering = ["is_verifier", "id"]
 
 
 class YearQuarter(models.IntegerChoices):
@@ -122,15 +164,14 @@ class TaskScales(models.IntegerChoices):
     FIVE_HUNDRED = 500, "1:500 000"
 
 
-class TaskStatuses(models.TextChoices):
-    WAITING = "WAITING", "Очікування"
-    IN_PROGRESS = "IN_PROGRESS", "В роботі"
-    STOPPED = "STOPPED", "Призупинено"
-    DONE = "DONE", "Завершено"
-    CORRECTING = "CORRECTING", "Корректура"
-    CORRECTING_QUEUE = "CORRECTING_QUEUE", "Черга корректури"
-    OTK = "OTK", "ОТК"
-    OTK_QUEUE = "OTK_QUEUE", "Черга ОТК"
+class BaseStatuses(Enum):
+    WAITING = "Очікування"
+    IN_PROGRESS = "В роботі"
+    CORRECTING_QUEUE = "Черга корректури"
+    CORRECTING = "Корректура"
+    VTK_QUEUE = "Черга ВТК"
+    VTK = "ВТК"
+    DONE = "Завершено"
 
 
 class Task(models.Model):
@@ -144,10 +185,10 @@ class Task(models.Model):
     otk_time_estimate = models.PositiveIntegerField(
         default=0, verbose_name="Час на ОТК"
     )
-    status = models.CharField(
-        max_length=50,
-        choices=TaskStatuses.choices,
-        default=TaskStatuses.WAITING,
+    status = models.ForeignKey(
+        "Status",
+        on_delete=models.PROTECT,
+        related_name="tasks",
         verbose_name="Статус",
     )
     scale = models.IntegerField(
@@ -166,7 +207,7 @@ class Task(models.Model):
     user = models.ForeignKey(
         "User",
         on_delete=models.SET_NULL,
-        related_name="task_users",
+        related_name="user_tasks",
         verbose_name="Відповідальний",
         blank=True,
         null=True,
@@ -174,14 +215,14 @@ class Task(models.Model):
     department = models.ForeignKey(
         "Department",
         on_delete=models.PROTECT,
-        related_name="task_departments",
+        related_name="department_tasks",
         verbose_name="Відділ",
     )
     primary_department = models.ForeignKey(
         "Department",
         null=True,
         on_delete=models.PROTECT,
-        related_name="task_primary_departments",
+        related_name="primary_department_tasks",
         verbose_name="Початковий відділ",
     )
 
@@ -190,24 +231,24 @@ class Task(models.Model):
 
     @property
     def change_time_done(self):
-        hours_sum = self.time_tracker_tasks.filter(
-            task_status=TaskStatuses.IN_PROGRESS
+        hours_sum = self.task_time_trackers.filter(
+            task_status=Status.objects.get(name=BaseStatuses.IN_PROGRESS.name).id
         ).aggregate(total_hours=Sum("hours"))
-        return hours_sum.get("total_hours", 0) or 0
+        return hours_sum.get("total_hours") or 0
 
     @property
     def correct_time_done(self):
-        hours_sum = self.time_tracker_tasks.filter(
-            task_status=TaskStatuses.CORRECTING
+        hours_sum = self.task_time_trackers.filter(
+            task_status=Status.objects.get(name=BaseStatuses.CORRECTING.name).id
         ).aggregate(total_hours=Sum("hours"))
-        return hours_sum.get("total_hours", 0) or 0
+        return hours_sum.get("total_hours") or 0
 
     @property
     def otk_time_done(self):
-        hours_sum = self.time_tracker_tasks.filter(
-            task_status=TaskStatuses.OTK
+        hours_sum = self.task_time_trackers.filter(
+            task_status=Status.objects.get(name=BaseStatuses.VTK.name).id
         ).aggregate(total_hours=Sum("hours"))
-        return hours_sum.get("total_hours", 0) or 0
+        return hours_sum.get("total_hours") or 0
 
     def start_time_tracker(self):
         data = {
@@ -220,6 +261,12 @@ class Task(models.Model):
             del data["status"]
             return TimeTracker.objects.create(**data)
 
+    def change_task_done(self, is_done=True):
+        if is_done:
+            self.done = datetime.now()
+        else:
+            self.done = None
+
     def create_log_comment(self, log_user, log_text, is_log):
         return Comment.objects.create(
             task=self, user=log_user, body=log_text, is_log=is_log
@@ -229,8 +276,12 @@ class Task(models.Model):
     def check_year_is_correct(year):
         years_before = date.today().year - 3
         years_after = date.today().year + 5
-        if year not in range(years_before, years_after+1):
-            raise AssertionError({'year': f"Рік має бути в діапазоні від {years_before} до {years_after}."})
+        if year not in range(years_before, years_after + 1):
+            raise AssertionError(
+                {
+                    "year": f"Рік має бути в діапазоні від {years_before} до {years_after}."
+                }
+            )
 
 
 class TimeTrackerStatuses(models.TextChoices):
@@ -242,13 +293,13 @@ class TimeTracker(models.Model):
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
-        related_name="time_tracker_tasks",
+        related_name="task_time_trackers",
         verbose_name="Задача",
     )
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="time_tracker_users",
+        related_name="user_time_trackers",
         verbose_name="Виконавець",
         null=True,
         blank=True,
@@ -264,11 +315,10 @@ class TimeTracker(models.Model):
         default=TimeTrackerStatuses.IN_PROGRESS,
         verbose_name="Статус",
     )
-    task_status = models.CharField(
-        max_length=50,
-        choices=TaskStatuses.choices,
-        default=TaskStatuses.WAITING,
-        blank=True,
+    task_status = models.ForeignKey(
+        "Status",
+        on_delete=models.PROTECT,
+        related_name="time_trackers",
         verbose_name="Статус задачі",
     )
 
@@ -276,7 +326,7 @@ class TimeTracker(models.Model):
         return f"{self.task.name} - {self.get_status_display()}"
 
     def change_status_done(self):
-        self.end_time = datetime.now(timezone.utc)
+        self.end_time = datetime.now()
         self.status = TimeTrackerStatuses.DONE
         self.save()
 
