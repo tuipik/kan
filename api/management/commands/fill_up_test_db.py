@@ -48,7 +48,7 @@ class Command(BaseCommand):
         for i in range(1, 4):
             task = Task.objects.create(
                 **{
-                    "name": f"M-36-10{i}-A",
+                    "name": f"M-36-10{i}-Б",
                     "change_time_estimate": 55 + i,
                     "correct_time_estimate": 54 + i,
                     "otk_time_estimate": 53 + i,

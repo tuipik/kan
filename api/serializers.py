@@ -314,16 +314,20 @@ class TaskSerializer(serializers.ModelSerializer):
         if year := self.validated_data.get("year"):
             Task.check_year_is_correct(year=year)
 
+        if task_name := self.validated_data.get("name"):
+            task_scale = self.validated_data.get("scale") or self.instance.scale
+            Task.check_name_correspond_to_scale_rule(task_name, task_scale)
+
         if not self.instance:
             super().save()
             self.instance.start_time_tracker()
             self.instance.create_log_comment(**comment_data)
             return self.instance
 
-        if validated_status := self.validated_data.get("status").id:
+        if validated_status := self.validated_data.get("status"):
             if (
                 self.instance.status.id == Status.STATUS_DONE_ID()
-                and validated_status != Status.STATUS_DONE_ID()
+                and validated_status.id != Status.STATUS_DONE_ID()
             ):
                 self.instance.change_task_done(is_done=False)
                 super().save()
@@ -334,11 +338,11 @@ class TaskSerializer(serializers.ModelSerializer):
             time_tracker = self.instance.task_time_trackers.get(
                 task__id=self.instance.id, status=TimeTrackerStatuses.IN_PROGRESS
             )
-            if validated_status != time_tracker.task_status:
+            if validated_status.id != time_tracker.task_status:
                 self._check_user_for_progress_status()
                 time_tracker.change_status_done()
                 super().save()
-                if validated_status != Status.STATUS_DONE_ID():
+                if validated_status.id != Status.STATUS_DONE_ID():
                     self.instance.start_time_tracker()
                 else:
                     self.instance.change_task_done(is_done=True)
