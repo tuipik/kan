@@ -15,9 +15,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .CONSTANTS import (
     TASK_NAME_REGEX,
-    TIME_TRACKER_STATUSES,
-    YEAR_QUARTERS,
-    TASK_SCALES,
 )
 from .filters import (
     UserFilter,
@@ -31,7 +28,18 @@ from .kan_permissions import (
     OwnerOrAdminOrReadOnly,
     TimeTrackerChangeIsAdminOrIsDepartmentHead,
 )
-from .models import User, Department, Task, Comment, TimeTracker, Status, BaseStatuses
+from .models import (
+    User,
+    Department,
+    Task,
+    Comment,
+    TimeTracker,
+    Status,
+    BaseStatuses,
+    TaskScales,
+    YearQuarter,
+    TimeTrackerStatuses,
+)
 from .serializers import (
     UserCreateSerializer,
     PasswordChangeSerializer,
@@ -346,9 +354,11 @@ class DefaultsView(APIView):
             "STATUSES_IDLE_IDS": sorted(Status.STATUSES_IDLE_IDS()),
             "STATUS_DONE_ID": Status.STATUS_DONE_ID(),
             "TASK_NAME_REGEX": TASK_NAME_REGEX,
-            "TASK_SCALES": TASK_SCALES,
-            "TIME_TRACKER_STATUSES": TIME_TRACKER_STATUSES,
-            "YEAR_QUARTERS": YEAR_QUARTERS,
+            "TASK_SCALES": {scale.value: scale.label for scale in TaskScales},
+            "TIME_TRACKER_STATUSES": {
+                status.value: status.label for status in TimeTrackerStatuses
+            },
+            "YEAR_QUARTERS": {quarter.value: quarter.label for quarter in YearQuarter},
         }
         return Response(
             ResponseInfo(

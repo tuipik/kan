@@ -1,6 +1,7 @@
 from datetime import datetime, date
 from enum import Enum
 
+import regex
 from django.contrib.auth.models import (
     BaseUserManager,
     AbstractBaseUser,
@@ -8,7 +9,9 @@ from django.contrib.auth.models import (
 )
 from django.db import models
 from django.db.models import Sum
+from rest_framework.exceptions import ValidationError
 
+from api.CONSTANTS import TASK_NAME_REGEX, TASK_NAME_RULES
 from kanban.settings import business_hours
 
 
@@ -22,7 +25,7 @@ class UserManager(BaseUserManager):
         department=None,
     ):
         if not username:
-            raise ValueError("У користувача має бути унікальний логін")
+            raise ValidationError({"login": "У користувача має бути унікальний логін"})
 
         user = self.model(
             username=username,
@@ -282,6 +285,22 @@ class Task(models.Model):
                     "year": f"Рік має бути в діапазоні від {years_before} до {years_after}."
                 }
             )
+
+    @staticmethod
+    def check_name_correspond_to_scale_rule(raw_name: str = "", scale: int = 50) -> bool:
+        name = raw_name.strip()
+        checked_name = regex.match(pattern=TASK_NAME_REGEX.get(scale), string=name)
+        errors = []
+        if not checked_name:
+            raise ValidationError({"name": f"Назва задачі не відповідає правилам написання номенклатури для масштабу {scale} 000"})
+
+        for ind, part in enumerate(name.split("-")):
+            if part not in TASK_NAME_RULES.get(scale, {}).get(ind, {}).get("rule"):
+                errors.append({ind: TASK_NAME_RULES.get(scale, {}).get(ind, {}).get("error")})
+        if errors:
+            raise ValidationError(errors)
+
+        return True
 
 
 class TimeTrackerStatuses(models.TextChoices):
