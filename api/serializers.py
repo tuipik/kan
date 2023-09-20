@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
@@ -329,7 +331,7 @@ class TaskSerializer(serializers.ModelSerializer):
                 self.instance.status.id == Status.STATUS_DONE_ID()
                 and validated_status.id != Status.STATUS_DONE_ID()
             ):
-                self.instance.change_task_done(is_done=False)
+                self.instance.done = None
                 super().save()
                 self.instance.start_time_tracker()
                 self.instance.create_log_comment(**comment_data)
@@ -345,7 +347,7 @@ class TaskSerializer(serializers.ModelSerializer):
                 if validated_status.id != Status.STATUS_DONE_ID():
                     self.instance.start_time_tracker()
                 else:
-                    self.instance.change_task_done(is_done=True)
+                    self.instance.done = datetime.now(timezone.utc)
                     super().save()
                 self.instance.create_log_comment(**comment_data)
                 return self.instance

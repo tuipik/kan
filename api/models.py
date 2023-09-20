@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from enum import Enum
 
 import regex
@@ -264,12 +264,6 @@ class Task(models.Model):
             del data["status"]
             return TimeTracker.objects.create(**data)
 
-    def change_task_done(self, is_done=True):
-        if is_done:
-            self.done = datetime.now()
-        else:
-            self.done = None
-
     def create_log_comment(self, log_user, log_text, is_log):
         return Comment.objects.create(
             task=self, user=log_user, body=log_text, is_log=is_log
@@ -345,12 +339,12 @@ class TimeTracker(models.Model):
         return f"{self.task.name} - {self.get_status_display()}"
 
     def change_status_done(self):
-        self.end_time = datetime.now()
+        self.end_time = datetime.now(timezone.utc)
         self.status = TimeTrackerStatuses.DONE
         self.save()
 
     def save(self, *args, **kwargs):
-        time_now = self.end_time or datetime.now()
+        time_now = self.end_time or datetime.now(timezone.utc)
         if self.start_time:
             self.hours = business_hours.difference(self.start_time, time_now).hours
         super(TimeTracker, self).save(*args, **kwargs)

@@ -277,7 +277,7 @@ class TaskViewSet(ResponseModelViewSet):
     def update(self, request, *args, **kwargs):
         if stat_id := request.data.get("status"):
             department = Department.objects.filter(statuses=stat_id)
-            if department.count() == 1:
+            if department.count() == 1 and department[0].is_verifier:
                 request.data.update({"department": department[0].id})
                 if not request.data.get("user"):
                     request.data.update({"user": None})
