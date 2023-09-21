@@ -2,7 +2,7 @@ import datetime
 import pytest
 from rest_framework.reverse import reverse
 
-from api.models import TimeTracker, TimeTrackerStatuses, Status
+from api.models import TimeTracker, TimeTrackerStatuses, Status, BaseStatuses
 from api.utils import fill_up_statuses
 from conftest import create_user_with_department, create_task, default_user_data
 from kanban.settings import workday_time, launch_time
@@ -13,7 +13,8 @@ def test_CRUD_tasks_ok(api_client, super_user):
     fill_up_statuses()
     api_client.force_authenticate(super_user)
 
-    department_data = {"name": "test_department", "status": [1,2]}
+    statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
+    department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
     department = api_client.post(reverse("department-list"), data=department_data)
     assert department.data.get("success")
 
@@ -37,7 +38,7 @@ def test_CRUD_tasks_ok(api_client, super_user):
     }
 
     # test create
-    result = api_client.post(reverse("task-list"), data=task_data)
+    result = api_client.post(reverse("task-list"), data=task_data, format="json")
 
     assert result.data.get("success")
     assert not result.data.get("errors")
@@ -53,10 +54,12 @@ def test_CRUD_tasks_ok(api_client, super_user):
     task_obj_id = all_tasks.data.get("data")[0].get("id")
     task_data["name"] = "M-36-80-А"
     task_data["primary_department"] = task_data["department"]
+    task_data["status"] = Status.objects.get(name=BaseStatuses.IN_PROGRESS.name).id
 
     result = api_client.put(
         reverse("task-detail", kwargs={"pk": task_obj_id}),
         data=task_data,
+        format="json",
     )
     assert result.data.get("success")
     assert not result.data.get("errors")
@@ -71,6 +74,7 @@ def test_CRUD_tasks_ok(api_client, super_user):
     result = api_client.patch(
         reverse("task-detail", kwargs={"pk": task_obj_id}),
         data=new_task_name,
+        format="json",
     )
     assert result.data.get("success")
     assert not result.data.get("errors")
@@ -253,3 +257,4 @@ def test_change_status_more_8_hours(api_client, super_user, freezer):
     assert time_trackers.data.get("data")[0].get("status") == TimeTrackerStatuses.DONE
     assert time_trackers.data.get("data")[0].get("hours") == workday_time
     assert time_trackers.data.get("data")[0].get("end_time")
+

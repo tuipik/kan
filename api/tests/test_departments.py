@@ -14,7 +14,7 @@ def test_CRUD_departments_ok(api_client, super_user):
     # test create
     statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
     department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
-    result = api_client.post(reverse("department-list"), data=department_data, content_type='application/json')
+    result = api_client.post(reverse("department-list"), data=department_data)
 
     assert result.data.get("success")
     assert not result.data.get("errors")
