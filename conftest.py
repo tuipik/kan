@@ -4,7 +4,7 @@ import pytest
 
 from rest_framework.test import APIClient
 
-from api.models import User, Department, Task, TimeTracker
+from api.models import User, Department, Task, TimeTracker, Status
 
 
 @pytest.fixture(scope="function")
@@ -46,7 +46,10 @@ def create_default_user(user_data) -> User:
 
 
 def create_department(name="DEFAULT_DEP") -> [Department, bool]:
-    return Department.objects.get_or_create(name=name, status=[1, 2])
+    dep, created = Department.objects.get_or_create(name=name)
+    dep.statuses.set([1, 2])
+    dep.save()
+    return dep
 
 
 def create_user_with_department(
@@ -54,16 +57,18 @@ def create_user_with_department(
 ) -> [dict, Department]:
     user = create_default_user(user_data)
     department = create_department(dep_name)
-    user.department = department[0]
+    user.department = department
     user.save()
-    return user, department[0]
+    return user, department
 
 
 def create_task(
     user: User = None, department: Department = None, name: str = "M-37-103-А"
 ) -> Task:
+    status = Status.objects.all()
     data = {
         "name": name,
+        "status": status[0],
         "change_time_estimate": 50,
         "correct_time_estimate": 25,
         "otk_time_estimate": 15,
@@ -71,11 +76,13 @@ def create_task(
         "category": 3,
         "user": user,
         "department": department,
+        "primary_department": department,
     }
     task = Task.objects.create(**data)
     time_tracker_data = {
         "task": task,
         "user": user,
+        "task_status": status[0],
     }
     TimeTracker.objects.create(**time_tracker_data)
     return task

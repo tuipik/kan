@@ -28,6 +28,7 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
 
     task_data = {
         "name": "M-37-103-А",
+        "scale": "50",
         "change_time_estimate": 50,
         "correct_time_estimate": 25,
         "otk_time_estimate": 15,
@@ -64,9 +65,7 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
     assert all_time_trackers.data.get("data")[0].get("task") == time_tracker_data.get(
         "task"
     )
-    assert all_time_trackers.data.get("data")[0].get("user").get(
-        "id"
-    ) == time_tracker_data.get("user")
+    assert all_time_trackers.data.get("data")[0].get("user") == time_tracker_data.get("user")
     assert not all_time_trackers.data.get("data")[0].get("end_time")
     assert all_time_trackers.data.get("data")[0].get("hours") == 0
     assert (
