@@ -360,3 +360,46 @@ def test_change_status_more_8_hours(api_client, super_user, freezer):
     assert time_trackers.data.get("data")[1].get("hours") == workday_time
     assert time_trackers.data.get("data")[1].get("end_time")
 
+@pytest.mark.django_db
+def test_check_user_is_department_member_of_task_department(api_client, super_user):
+    fill_up_statuses()
+    default_user_num = 2
+    api_client.force_authenticate(super_user)
+
+    # create departments
+    statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
+    department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
+    dep_1 = api_client.post(reverse("department-list"), data=department_data)
+    dep_2 = api_client.post(reverse("department-list"), data=department_data)
+    department_id = dep_1.data.get("data")[0].get("id")
+
+    # create users
+    users_data = default_user_data(default_user_num)
+    user_1 = api_client.post(reverse("account-list"), data=next(users_data))
+    user_2 = api_client.post(reverse("account-list"), data=next(users_data))
+
+    created_user_1 = api_client.get(reverse("account-list"), kwargs={"username": user_1.data.get("data")[0].get("username")})
+
+    # create task
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": 50,
+        "change_time_estimate": 50,
+        "correct_time_estimate": 25,
+        "otk_time_estimate": 15,
+        "quarter": 1,
+        "category": "some category",
+        "user": None,
+        "department": department_id,
+        "primary_department": department_id,
+    }
+    task = api_client.post(reverse("task-list"), data=task_data, format="json")
+
+    # update task
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"user": created_user_1.data.get("data")[0].get("id")},
+        format="json",
+    )
+
+    assert result.data.get("success")
