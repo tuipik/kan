@@ -366,19 +366,10 @@ def test_check_user_is_department_member_of_task_department(api_client, super_us
     default_user_num = 2
     api_client.force_authenticate(super_user)
 
-    # create departments
-    statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
-    department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
-    dep_1 = api_client.post(reverse("department-list"), data=department_data)
-    dep_2 = api_client.post(reverse("department-list"), data=department_data)
-    department_id = dep_1.data.get("data")[0].get("id")
-
-    # create users
+    # create users with departments
     users_data = default_user_data(default_user_num)
-    user_1 = api_client.post(reverse("account-list"), data=next(users_data))
-    user_2 = api_client.post(reverse("account-list"), data=next(users_data))
-
-    created_user_1 = api_client.get(reverse("account-list"), kwargs={"username": user_1.data.get("data")[0].get("username")})
+    user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
+    user_2, dep_2 = create_user_with_department(next(users_data), dep_name="Dep_2")
 
     # create task
     task_data = {
@@ -390,16 +381,26 @@ def test_check_user_is_department_member_of_task_department(api_client, super_us
         "quarter": 1,
         "category": "some category",
         "user": None,
-        "department": department_id,
-        "primary_department": department_id,
+        "department": dep_1.id,
+        "primary_department": dep_1.id,
     }
     task = api_client.post(reverse("task-list"), data=task_data, format="json")
 
     # update task
     result = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
-        data={"user": created_user_1.data.get("data")[0].get("id")},
+        data={"user": user_1.id},
         format="json",
     )
 
     assert result.data.get("success")
+    assert not result.data.get("errors")
+
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"user": user_2.id},
+        format="json",
+    )
+
+    assert not result.data.get("success")
+
