@@ -276,6 +276,7 @@ class TaskViewSet(ResponseModelViewSet):
 
     def update(self, request, *args, **kwargs):
         if stat_id := request.data.get("status"):
+            self.request.user.can_change_task_status_to_progress(stat_id)
             department = Department.objects.filter(statuses=stat_id)
             if department.count() == 1 and department[0].is_verifier:
                 request.data.update({"department": department[0].id})
@@ -303,9 +304,7 @@ class TaskViewSet(ResponseModelViewSet):
         if current_user.is_admin or current_user.department.is_verifier:
             return Task.objects.all()
         else:
-            return Task.objects.filter(
-                primary_department_id=current_user.primary_department.id
-            )
+            return Task.objects.filter(primary_department_id=current_user.department.id)
 
 
 class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
@@ -331,6 +330,16 @@ class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
     default_serializer_class = TimeTrackerSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_class = TimeTrackerFilter
+
+    def get_queryset(self, *args, **kwargs):
+        if self.request.user.is_admin:
+            return TimeTracker.objects.all()
+        elif self.request.user.is_head_department:
+            return TimeTracker.objects.filter(
+                user__department_id=self.request.user.department.id
+            )
+        else:
+            return TimeTracker.objects.filter(user_id=self.request.user.id)
 
 
 class CommentViewSet(ResponseModelViewSet):
