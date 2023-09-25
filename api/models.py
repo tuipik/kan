@@ -94,6 +94,18 @@ class User(AbstractBaseUser, PermissionsMixin):
     def is_superuser(self):
         return self.is_admin
 
+    def can_change_task_status_to_progress(self, status_id):
+        if (
+            not self.is_admin
+            and status_id in Status.STATUSES_PROGRESS_IDS()
+            and status_id not in [stat.id for stat in self.department.statuses.all()]
+        ):
+            raise ValidationError(
+                {
+                    "status": "Користувач може змінити статус для іншого відділу тільки на 'В черзі'."
+                }
+            )
+
 
 class Status(models.Model):
     name = models.CharField(max_length=255, unique=True, verbose_name="Статус")
@@ -281,16 +293,24 @@ class Task(models.Model):
             )
 
     @staticmethod
-    def check_name_correspond_to_scale_rule(raw_name: str = "", scale: int = 50) -> bool:
+    def check_name_correspond_to_scale_rule(
+        raw_name: str = "", scale: int = 50
+    ) -> bool:
         name = raw_name.strip()
         checked_name = regex.match(pattern=TASK_NAME_REGEX.get(scale), string=name)
         errors = []
         if not checked_name:
-            raise ValidationError({"name": f"Назва задачі не відповідає правилам написання номенклатури для масштабу {scale} 000"})
+            raise ValidationError(
+                {
+                    "name": f"Назва задачі не відповідає правилам написання номенклатури для масштабу {scale} 000"
+                }
+            )
 
         for ind, part in enumerate(name.split("-")):
             if part not in TASK_NAME_RULES.get(scale, {}).get(ind, {}).get("rule"):
-                errors.append({ind: TASK_NAME_RULES.get(scale, {}).get(ind, {}).get("error")})
+                errors.append(
+                    {ind: TASK_NAME_RULES.get(scale, {}).get(ind, {}).get("error")}
+                )
         if errors:
             raise ValidationError(errors)
 
@@ -338,15 +358,23 @@ class TimeTracker(models.Model):
     def __str__(self):
         return f"{self.task.name} - {self.get_status_display()}"
 
+    class Meta:
+        ordering = ["start_time"]
+
     def change_status_done(self):
-        self.end_time = datetime.now(timezone.utc)
+        self.end_time = datetime.now()
         self.status = TimeTrackerStatuses.DONE
         self.save()
 
     def save(self, *args, **kwargs):
-        time_now = self.end_time or datetime.now(timezone.utc)
+        time_now = self.end_time or datetime.now()
+        minute = 60
+        half_hour = 30
         if self.start_time:
-            self.hours = business_hours.difference(self.start_time, time_now).hours
+            diff = business_hours.difference(self.start_time, time_now)
+            self.hours = diff.hours
+            if (diff.seconds / minute) >= half_hour:
+                self.hours += 1
         super(TimeTracker, self).save(*args, **kwargs)
 
 

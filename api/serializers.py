@@ -347,7 +347,7 @@ class TaskSerializer(serializers.ModelSerializer):
                 if validated_status.id != Status.STATUS_DONE_ID():
                     self.instance.start_time_tracker()
                 else:
-                    self.instance.done = datetime.now(timezone.utc)
+                    self.instance.done = datetime.now()
                     super().save()
                 self.instance.create_log_comment(**comment_data)
                 return self.instance
