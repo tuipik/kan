@@ -1,4 +1,4 @@
-from datetime import datetime, date, timezone
+from datetime import datetime, date
 from enum import Enum
 
 import regex
@@ -7,15 +7,46 @@ from django.contrib.auth.models import (
     AbstractBaseUser,
     PermissionsMixin,
 )
-from django.db import models
 from django.db.models import Sum
 from rest_framework.exceptions import ValidationError
 
 from api.CONSTANTS import TASK_NAME_REGEX, TASK_NAME_RULES
 from kanban.settings import business_hours
 
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import models
+from django.db.models.base import ModelBase
+from django.db.models.manager import Manager
 
-class UserManager(BaseUserManager):
+
+class GetObjectManager(Manager):
+    def get_or_none(self, *args, **kwargs):
+        try:
+            return self.get(*args, **kwargs)
+        except ObjectDoesNotExist:
+            return None
+
+
+class MetaModelBase(ModelBase):
+    def _prepare(cls):
+        manager = GetObjectManager()
+        manager.auto_created = True
+        cls.add_to_class("objects", manager)
+
+        super()._prepare()
+
+    class Meta:
+        abstract = True
+
+
+class UpdatedModel(models.Model, metaclass=MetaModelBase):
+    managers = False
+
+    class Meta:
+        abstract = True
+
+
+class UserManager(BaseUserManager, GetObjectManager):
     def create_user(
         self,
         username,
@@ -58,7 +89,7 @@ class UserManager(BaseUserManager):
         return user
 
 
-class User(AbstractBaseUser, PermissionsMixin):
+class User(AbstractBaseUser, UpdatedModel, PermissionsMixin):
     username = models.CharField(max_length=255, unique=True, verbose_name="Логін")
     first_name = models.CharField(max_length=255, verbose_name="Ім'я")
     last_name = models.CharField(max_length=255, verbose_name="Прізвище")
@@ -107,7 +138,7 @@ class User(AbstractBaseUser, PermissionsMixin):
             )
 
 
-class Status(models.Model):
+class Status(UpdatedModel):
     name = models.CharField(max_length=255, unique=True, verbose_name="Статус")
     translation = models.CharField(max_length=255, unique=True, verbose_name="Переклад")
 
@@ -139,10 +170,10 @@ class Status(models.Model):
 
     @classmethod
     def STATUS_DONE_ID(cls) -> int:
-        return cls.objects.get(name=BaseStatuses.DONE.name).id
+        return cls.objects.get_or_none(name=BaseStatuses.DONE.name).id
 
 
-class Department(models.Model):
+class Department(UpdatedModel):
     name = models.CharField(max_length=255, unique=True, verbose_name="Відділ")
     head = models.ForeignKey(
         "User",
@@ -189,7 +220,7 @@ class BaseStatuses(Enum):
     DONE = "Завершено"
 
 
-class Task(models.Model):
+class Task(UpdatedModel):
     name = models.CharField(max_length=255, verbose_name="Назва")
     change_time_estimate = models.PositiveIntegerField(
         default=0, verbose_name="Час на оновлення"
@@ -247,21 +278,23 @@ class Task(models.Model):
     @property
     def change_time_done(self):
         hours_sum = self.task_time_trackers.filter(
-            task_status=Status.objects.get(name=BaseStatuses.IN_PROGRESS.name).id
+            task_status=Status.objects.get_or_none(
+                name=BaseStatuses.IN_PROGRESS.name
+            ).id
         ).aggregate(total_hours=Sum("hours"))
         return hours_sum.get("total_hours") or 0
 
     @property
     def correct_time_done(self):
         hours_sum = self.task_time_trackers.filter(
-            task_status=Status.objects.get(name=BaseStatuses.CORRECTING.name).id
+            task_status=Status.objects.get_or_none(name=BaseStatuses.CORRECTING.name).id
         ).aggregate(total_hours=Sum("hours"))
         return hours_sum.get("total_hours") or 0
 
     @property
     def otk_time_done(self):
         hours_sum = self.task_time_trackers.filter(
-            task_status=Status.objects.get(name=BaseStatuses.VTK.name).id
+            task_status=Status.objects.get_or_none(name=BaseStatuses.VTK.name).id
         ).aggregate(total_hours=Sum("hours"))
         return hours_sum.get("total_hours") or 0
 
@@ -274,6 +307,7 @@ class Task(models.Model):
         }
         if not TimeTracker.objects.filter(**data).count():
             del data["status"]
+            data["start_time"] = datetime.now()
             return TimeTracker.objects.create(**data)
 
     def create_log_comment(self, log_user, log_text, is_log):
@@ -322,7 +356,7 @@ class TimeTrackerStatuses(models.TextChoices):
     DONE = "DONE", "Завершено"
 
 
-class TimeTracker(models.Model):
+class TimeTracker(UpdatedModel):
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
@@ -337,7 +371,7 @@ class TimeTracker(models.Model):
         null=True,
         blank=True,
     )
-    start_time = models.DateTimeField(verbose_name="Час початку", auto_now_add=True)
+    start_time = models.DateTimeField(verbose_name="Час початку", null=True, blank=True)
     end_time = models.DateTimeField(
         verbose_name="Час закінчення", null=True, blank=True
     )
@@ -366,6 +400,84 @@ class TimeTracker(models.Model):
         self.status = TimeTrackerStatuses.DONE
         self.save()
 
+    def _create_tracker(self, data):
+        TimeTracker.objects.create(
+            task=self.task,
+            user=None,
+            start_time=data.get("start_time"),
+            end_time=data.get("end_time"),
+            status=TimeTrackerStatuses.DONE,
+            task_status=Status.objects.get_or_none(name=BaseStatuses.WAITING.name),
+        )
+
+    def handle_update_time(self, changed_time, is_start):
+        date_obj = datetime.fromisoformat(changed_time)
+
+        previous_tracker = TimeTracker.objects.filter(
+            **{"end_time__lt": changed_time}
+        ).last()
+        next_tracker = TimeTracker.objects.filter(
+            **{f"start_time__gt": changed_time}
+        ).first()
+
+        if is_start and date_obj < self.start_time:
+            if previous_tracker and date_obj < previous_tracker.start_time:
+                raise ValidationError(
+                    {
+                        "start_time": "Час старту трекера не може бути ранішим за дату старту попереднього трекера. Спочатку треба видалити попередній трекер."
+                    }
+                )
+            previous_tracker.end_time = date_obj
+            previous_tracker.save()
+            return
+
+        if is_start and date_obj > self.start_time:
+            if date_obj > datetime.now():
+                raise ValidationError(
+                    {
+                        "start_time": "Час старту трекера не може бути пізнішим ніж поточний час."
+                    }
+                )
+
+            if self.end_time and date_obj > self.end_time:
+                raise ValidationError(
+                    {
+                        "start_time": "Час старту трекера не може бути пізнішим ніж час закінчення поточного трекера."
+                    }
+                )
+
+            self._create_tracker(
+                data={"start_time": previous_tracker.end_time, "end_time": date_obj}
+            )
+            return
+
+        if not is_start and date_obj > self.end_time:
+            if (
+                next_tracker
+                and next_tracker.end_time
+                and date_obj > next_tracker.end_time
+            ):
+                raise ValidationError(
+                    {
+                        "end_time": "Час закінчення трекера не може бути пізнішим ніж час закінчення наступного трекера. Спочатку треба видалити наступний трекер."
+                    }
+                )
+            next_tracker.start_time = date_obj
+            next_tracker.save()
+            return
+
+        if not is_start and date_obj < self.end_time and next_tracker:
+            if date_obj < self.start_time:
+                raise ValidationError(
+                    {
+                        "end_time": "Час закінчення трекера не може бути раніше його початку"
+                    }
+                )
+            self._create_tracker(
+                data={"start_time": date_obj, "end_time": next_tracker.start_time}
+            )
+            return
+
     def save(self, *args, **kwargs):
         time_now = self.end_time or datetime.now()
         minute = 60
@@ -378,7 +490,7 @@ class TimeTracker(models.Model):
         super(TimeTracker, self).save(*args, **kwargs)
 
 
-class Comment(models.Model):
+class Comment(UpdatedModel):
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,

@@ -55,7 +55,7 @@ class Command(BaseCommand):
 
     def create_tasks(self):
         user_list = User.objects.filter(department__is_verifier=False)
-        status = Status.objects.get(name=BaseStatuses.WAITING.name)
+        status = Status.objects.get_or_none(name=BaseStatuses.WAITING.name)
         names = []
         for department in Department.objects.filter(is_verifier=False):
             for user in [

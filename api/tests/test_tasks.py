@@ -112,14 +112,14 @@ def test_user_already_has_task_in_progress(api_client, super_user, freezer):
     task_1 = api_client.post(reverse("task-list"), data=task_data, format="json")
     task_1_in_progress = api_client.patch(
         reverse("task-detail", kwargs={"pk": task_1.data.get("data")[0].get("id")}),
-        data={"user": user_executant.id, "status": Status.objects.get(name="IN_PROGRESS").id},
+        data={"user": user_executant.id, "status": Status.objects.get_or_none(name="IN_PROGRESS").id},
         format="json",
     )
     task_data["name"] = "task_2"
     task_2 = api_client.post(reverse("task-list"), data=task_data, format="json")
     task_2_in_progress = api_client.patch(
         reverse("task-detail", kwargs={"pk": task_2.data.get("data")[0].get("id")}),
-        data={"user": user_executant.id, "status": Status.objects.get(name="IN_PROGRESS").id},
+        data={"user": user_executant.id, "status": Status.objects.get_or_none(name="IN_PROGRESS").id},
         format="json",
     )
     assert not task_2_in_progress.data.get("success")
@@ -138,24 +138,24 @@ def test_create_time_tracker_on_change_task_in_progress(
     task = create_task(user=user, department=department)
     a1 = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"user": user.id, "status": Status.objects.get(name="IN_PROGRESS").id},
+        data={"user": user.id, "status": Status.objects.get_or_none(name="IN_PROGRESS").id},
     )
     # the second run update with status IN_PROGRESS is to test, that only 1 TimeTracker can be IN_PROGRESS at one time
     # and should change status to idle first
     a2 = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"user": user.id, "status": Status.objects.get(name="IN_PROGRESS").id},
+        data={"user": user.id, "status": Status.objects.get_or_none(name="IN_PROGRESS").id},
     )
 
     time_trackers = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS)
     assert time_trackers.count() == 1
     assert time_trackers[0].task.id == task.id
     assert time_trackers[0].user.id == user.id
-    assert time_trackers[0].status == Status.objects.get(name="IN_PROGRESS").id
+    assert time_trackers[0].status == Status.objects.get_or_none(name="IN_PROGRESS").id
 
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get(name="WAITING").id},
+        data={"status": Status.objects.get_or_none(name="WAITING").id},
     )
 
 
@@ -173,7 +173,7 @@ def test_change_status_less_4_hours(api_client, super_user, freezer):
     # task IN_PROGRESS creates time_tracker
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get(name="IN_PROGRESS").id},
+        data={"status": Status.objects.get_or_none(name="IN_PROGRESS").id},
     )
 
     hours_passed = 3
@@ -182,7 +182,7 @@ def test_change_status_less_4_hours(api_client, super_user, freezer):
     # task DONE updates time_tracker with status DONE
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get(name="DONE").id},
+        data={"status": Status.objects.get_or_none(name="DONE").id},
     )
     time_trackers = api_client.get(reverse("time_tracker-list"))
 
@@ -205,7 +205,7 @@ def test_change_status_more_4_hours(api_client, super_user, freezer):
     # task IN_PROGRESS creates time_tracker
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get(name="IN_PROGRESS").id},
+        data={"status": Status.objects.get_or_none(name="IN_PROGRESS").id},
     )
 
     hours_passed = 5
@@ -214,7 +214,7 @@ def test_change_status_more_4_hours(api_client, super_user, freezer):
     # task DONE updates time_tracker with status DONE
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get(name="DONE").id},
+        data={"status": Status.objects.get_or_none(name="DONE").id},
     )
     time_trackers = api_client.get(reverse("time_tracker-list"))
 
@@ -237,7 +237,7 @@ def test_change_status_more_8_hours(api_client, super_user, freezer):
     # task IN_PROGRESS creates time_tracker
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get(name="IN_PROGRESS").id},
+        data={"status": Status.objects.get_or_none(name="IN_PROGRESS").id},
     )
 
     hours_passed = 10
@@ -246,7 +246,7 @@ def test_change_status_more_8_hours(api_client, super_user, freezer):
     # task DONE updates time_tracker with status DONE
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get(name="DONE").id},
+        data={"status": Status.objects.get_or_none(name="DONE").id},
     )
     time_trackers = api_client.get(reverse("time_tracker-list"))
 

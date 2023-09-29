@@ -196,7 +196,7 @@ class LogoutView(APIView):
         refresh_token = request.data["refresh"]
         try:
             refresh_token = RefreshToken(refresh_token)
-            user = User.objects.get(id=refresh_token.payload["user_id"])
+            user = User.objects.get_or_none(id=refresh_token.payload["user_id"])
         except AttributeError:
             user = "Undefined"
         refresh_token.blacklist()
@@ -270,7 +270,7 @@ class TaskViewSet(ResponseModelViewSet):
             request.data.update({"primary_department": dep})
 
         request.data.update(
-            {"status": Status.objects.get(name=BaseStatuses.WAITING.name).id}
+            {"status": Status.objects.get_or_none(name=BaseStatuses.WAITING.name).id}
         )
         return super().create(request, *args, **kwargs)
 
@@ -340,6 +340,19 @@ class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
             )
         else:
             return TimeTracker.objects.filter(user_id=self.request.user.id)
+
+    def update(self, request, *args, **kwargs):
+        obj = self.get_object()
+
+        start_time = request.data.get("start_time")
+        if start_time:
+            obj.handle_update_time(changed_time=start_time, is_start=True)
+
+        end_time = request.data.get("end_time")
+        if end_time:
+            obj.handle_update_time(changed_time=end_time, is_start=False)
+
+        return super().update(request, *args, **kwargs)
 
 
 class CommentViewSet(ResponseModelViewSet):

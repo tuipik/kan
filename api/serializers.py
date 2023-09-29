@@ -38,7 +38,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
     def save(self):
         if user_id := self.initial_data.get("head"):
-            user = User.objects.get(pk=user_id)
+            user = User.objects.get_or_none(pk=user_id)
             if not user.department or not user.department_id == self.instance.id:
                 raise serializers.ValidationError(
                     {
@@ -298,7 +298,7 @@ class TaskSerializer(serializers.ModelSerializer):
             change_list = []
             for key, value in self.validated_data.items():
                 if key == "status":
-                    text = Status.objects.get(id=value.id).translation
+                    text = Status.objects.get_or_none(id=value.id).translation
                 elif key == "user" and value:
                     text = f"{value.last_name} {value.first_name}"
                 else:
