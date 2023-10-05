@@ -190,7 +190,8 @@ class TaskSerializer(serializers.ModelSerializer):
     )
     user_obj = UserBaseSerializer(source="user", read_only=True)
     involved_users = serializers.ManyRelatedField(
-        child_relation=InvolvedUsersSerializer(source="user", read_only=True)
+        child_relation=InvolvedUsersSerializer(source="user", read_only=True),
+        required=False,
     )
     department_obj = DepartmentSerializer(source="department", read_only=True)
     quarter_display_value = serializers.CharField(
