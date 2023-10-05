@@ -223,5 +223,55 @@ def test_update_start_time_lt_fake_time(api_client, super_user, freezer):
     assert result.data.get("success")
     assert second_start_tracker_actual_start_time == second_time_trackers_new_start_time.get("start_time")
 
+@pytest.mark.django_db
+@pytest.mark.freeze_time("2023-06-05 10:00:00")
+def test_handle_start_time_not_gt_time_now(api_client, super_user, freezer):
+    fill_up_statuses()
+
+    api_client.force_authenticate(super_user)
+
+    # Create Task with Department and User
+    statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
+    department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
+    department = api_client.post(reverse("department-list"), data=department_data)
+    department_id = department.data.get("data")[0].get("id")
+
+    assert department.data.get("success")
+
+    user = api_client.patch(
+        reverse("account-detail", kwargs={"pk": super_user.id}),
+        data={"department": department_id},
+    )
+
+    assert user.data.get("success")
+
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": "50",
+        "change_time_estimate": 50,
+        "correct_time_estimate": 25,
+        "otk_time_estimate": 15,
+        "quarter": 1,
+        "category": "some category",
+        "user": user.data.get("data")[0].get("id"),
+        "department": department_id,
+        "primary_department": department_id,
+    }
+
+    task = api_client.post(reverse("task-list"), data=task_data, format='json')
+
+    assert task.data.get("success")
+
+    # Get First Time Tracker and change Start Time to 11:00
+
+    time_tracker = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS).first()
+    time_tracker_new_start_time = {"start_time": time_tracker.start_time + datetime.timedelta(hours=1)}
+    result = api_client.patch(
+        reverse("time_tracker-detail", kwargs={"pk": time_tracker.id}),
+        data=time_tracker_new_start_time,
+    )
+
+    assert not result.data.get("success")
+    assert result.data.get("errors")[0].get("attr") == "previous_tracker"
 
 

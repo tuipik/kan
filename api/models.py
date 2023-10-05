@@ -457,7 +457,15 @@ class TimeTracker(UpdatedModel):
             previous_tracker.save()
             return
 
+
+
         if is_start_time and date_obj > self.start_time:
+            if not previous_tracker:
+                raise ValidationError(
+                    {
+                        "previous_tracker": "Час старту першого трекеру повинен співпадати з часом створення його задачі."
+                    }
+                )
             if date_obj > datetime.now():
                 raise ValidationError(
                     {
