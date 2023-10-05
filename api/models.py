@@ -457,8 +457,6 @@ class TimeTracker(UpdatedModel):
             previous_tracker.save()
             return
 
-
-
         if is_start_time and date_obj > self.start_time:
             if not previous_tracker:
                 raise ValidationError(

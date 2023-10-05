@@ -262,16 +262,93 @@ def test_handle_start_time_not_gt_time_now(api_client, super_user, freezer):
 
     assert task.data.get("success")
 
-    # Get First Time Tracker and change Start Time to 11:00
+    # Get First Time Tracker and try to change Start Time to 11:00
 
-    time_tracker = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS).first()
-    time_tracker_new_start_time = {"start_time": time_tracker.start_time + datetime.timedelta(hours=1)}
+    first_time_tracker = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS).first()
+    first_time_tracker_new_start_time = {"start_time": first_time_tracker.start_time + datetime.timedelta(hours=1)}
     result = api_client.patch(
-        reverse("time_tracker-detail", kwargs={"pk": time_tracker.id}),
-        data=time_tracker_new_start_time,
+        reverse("time_tracker-detail", kwargs={"pk": first_time_tracker.id}),
+        data=first_time_tracker_new_start_time,
     )
+
+    first_time_tracker_actual = TimeTracker.objects.get_or_none(status=TimeTrackerStatuses.IN_PROGRESS)
+    first_time_tracker_actual_start_time = first_time_tracker_actual.start_time
 
     assert not result.data.get("success")
     assert result.data.get("errors")[0].get("attr") == "previous_tracker"
+    assert first_time_tracker_actual_start_time == first_time_tracker.start_time
+
+    # Change Fake time by 1 hour (11:00)
+    hours_passed = 1
+    freezer.move_to(
+        datetime.datetime.now() + datetime.timedelta(hours=hours_passed)
+    )
+
+    # Create Second Time Tracker by updating task status to IN_PROGRESS
+    all_tasks = api_client.get(reverse("task-list"))
+    task_obj_id = all_tasks.data.get("data")[0].get("id")
+    status_progress = Status.objects.get_or_none(name=BaseStatuses.IN_PROGRESS.name)
+    new_task_status = {"status": status_progress.id}
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task_obj_id}),
+        data=new_task_status,
+        format="json",
+    )
+
+    assert result.data.get("success")
+
+    # Get Second TT
+    second_time_tracker = TimeTracker.objects.get_or_none(status=TimeTrackerStatuses.IN_PROGRESS.name)
+
+    # Change Start time for Second TT more than time.now
+    second_time_tracker_new_start_time = {"start_time": datetime.datetime.now() + datetime.timedelta(hours=1)}
+    result = api_client.patch(
+        reverse("time_tracker-detail", kwargs={"pk": second_time_tracker.id}),
+        data=second_time_tracker_new_start_time,
+    )
+    second_time_tracker_actual = TimeTracker.objects.get_or_none(status=TimeTrackerStatuses.IN_PROGRESS)
+    second_start_tracker_actual_start_time = second_time_tracker_actual.start_time
+
+    assert not result.data.get("success")
+    assert result.data.get("errors")[0].get("attr") == "start_time"
+    assert second_start_tracker_actual_start_time == second_time_tracker.start_time
+
+    # Test change Start time for TT more than End time
+    # Change Fake time by 1 hour (12:00)
+    freezer.move_to(
+        datetime.datetime.now() + datetime.timedelta(hours=hours_passed)
+    )
+
+    # Change task status to Waiting (this will create Third TT)
+    status_waiting = Status.objects.get_or_none(name=BaseStatuses.WAITING.name)
+    new_task_status = {"status": status_waiting.id}
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task_obj_id}),
+        data=new_task_status,
+        format="json",
+    )
+
+    assert result.data.get("success")
+
+    # Change Fake time by 1 hour (to 13:00)
+    freezer.move_to(
+        datetime.datetime.now() + datetime.timedelta(hours=hours_passed)
+    )
+
+    # Change Start time for Second TT more than End time
+    second_time_tracker = TimeTracker.objects.filter(status=TimeTrackerStatuses.DONE.name).last()
+    second_time_tracker_new_start_time = {"start_time": second_time_tracker.end_time + datetime.timedelta(hours=1)}
+    result = api_client.patch(
+        reverse("time_tracker-detail", kwargs={"pk": second_time_tracker.id}),
+        data=second_time_tracker_new_start_time,
+    )
+    second_time_tracker_actual = TimeTracker.objects.filter(status=TimeTrackerStatuses.DONE.name).last()
+
+    assert not result.data.get("success")
+    assert result.data.get("errors")[0].get("attr") == "start_time"
+    assert second_time_tracker_actual.start_time == second_time_tracker.start_time
+
+
+
 
 
