@@ -258,6 +258,11 @@ class Task(UpdatedModel):
         blank=True,
         null=True,
     )
+    involved_users = models.ManyToManyField(
+        "User",
+        related_name="tasks_involved",
+        verbose_name="Задіяні користувачі",
+    )
     department = models.ForeignKey(
         "Department",
         on_delete=models.PROTECT,
@@ -274,6 +279,11 @@ class Task(UpdatedModel):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        super(Task, self).save(*args, **kwargs)
+        if self.user:
+            self.involved_users.add(self.user)
 
     @property
     def change_time_done(self):

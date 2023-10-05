@@ -168,11 +168,30 @@ class TimeTrackerSerializer(serializers.ModelSerializer):
         read_only_fields = ("start_time", "hours")
 
 
+class InvolvedUsersSerializer(serializers.ModelSerializer):
+    department = serializers.PrimaryKeyRelatedField(read_only=True)
+    department_name = serializers.CharField(source="department", read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "department",
+            "department_name",
+        ]
+
+
 class TaskSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), allow_null=True, many=False, label="Відповідальний"
     )
     user_obj = UserBaseSerializer(source="user", read_only=True)
+    involved_users = serializers.ManyRelatedField(
+        child_relation=InvolvedUsersSerializer(source="user", read_only=True)
+    )
     department_obj = DepartmentSerializer(source="department", read_only=True)
     quarter_display_value = serializers.CharField(
         source="get_quarter_display", read_only=True
@@ -212,6 +231,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "category",
             "user",
             "user_obj",
+            "involved_users",
             "department",
             "department_obj",
             "primary_department",
