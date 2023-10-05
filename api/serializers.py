@@ -165,7 +165,7 @@ class TimeTrackerSerializer(serializers.ModelSerializer):
             "hours",
             "task_status",
         ]
-        read_only_fields = ("start_time", "hours")
+        read_only_fields = ("hours",)
 
 
 class InvolvedUsersSerializer(serializers.ModelSerializer):

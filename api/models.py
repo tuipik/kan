@@ -427,17 +427,26 @@ class TimeTracker(UpdatedModel):
             task_status=Status.objects.get_or_none(name=BaseStatuses.WAITING.name),
         )
 
-    def handle_update_time(self, changed_time, is_start):
+    def handle_update_time(self, changed_time: str, is_start_time: bool):
         date_obj = datetime.fromisoformat(changed_time)
 
         previous_tracker = TimeTracker.objects.filter(
-            **{"end_time__lt": changed_time}
+            id__lt=self.id, task__id=self.task.id,
         ).last()
-        next_tracker = TimeTracker.objects.filter(
-            **{f"start_time__gt": changed_time}
-        ).first()
+        if not self.end_time:
+            next_tracker = None
+        else:
+            next_tracker = TimeTracker.objects.filter(
+                id__gt=self.id, task__id=self.task.id,
+            ).first()
 
-        if is_start and date_obj < self.start_time:
+        if is_start_time and date_obj < self.start_time:
+            if not previous_tracker:
+                raise ValidationError(
+                    {
+                        "previous_tracker": "Час старту першого трекера не може бути меншим за час створення його задачі."
+                    }
+                )
             if previous_tracker and date_obj < previous_tracker.start_time:
                 raise ValidationError(
                     {
@@ -448,7 +457,7 @@ class TimeTracker(UpdatedModel):
             previous_tracker.save()
             return
 
-        if is_start and date_obj > self.start_time:
+        if is_start_time and date_obj > self.start_time:
             if date_obj > datetime.now():
                 raise ValidationError(
                     {
@@ -468,7 +477,7 @@ class TimeTracker(UpdatedModel):
             )
             return
 
-        if not is_start and date_obj > self.end_time:
+        if not is_start_time and date_obj > self.end_time:
             if (
                 next_tracker
                 and next_tracker.end_time
@@ -483,7 +492,7 @@ class TimeTracker(UpdatedModel):
             next_tracker.save()
             return
 
-        if not is_start and date_obj < self.end_time and next_tracker:
+        if not is_start_time and date_obj < self.end_time and next_tracker:
             if date_obj < self.start_time:
                 raise ValidationError(
                     {
