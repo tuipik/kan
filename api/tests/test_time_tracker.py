@@ -448,3 +448,205 @@ def test_tt_end_time_not_gt_next_tt_end_time(api_client, super_user, freezer):
     assert not result.data.get("success")
     assert result.data.get("errors")[0].get("attr") == "end_time"
     assert second_tt_actual.end_time == second_tt.end_time
+
+@pytest.mark.django_db
+@pytest.mark.freeze_time("2023-06-05 10:00:00")
+def test_handle_update_inside_success(api_client, super_user, freezer):
+    fill_up_statuses()
+
+    api_client.force_authenticate(super_user)
+
+    # Create Task with Department and User
+    statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
+    department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
+    department = api_client.post(reverse("department-list"), data=department_data)
+    department_id = department.data.get("data")[0].get("id")
+
+    assert department.data.get("success")
+
+    user = api_client.patch(
+        reverse("account-detail", kwargs={"pk": super_user.id}),
+        data={"department": department_id},
+    )
+
+    assert user.data.get("success")
+
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": "50",
+        "change_time_estimate": 50,
+        "correct_time_estimate": 25,
+        "otk_time_estimate": 15,
+        "quarter": 1,
+        "category": "some category",
+        "user": user.data.get("data")[0].get("id"),
+        "department": department_id,
+        "primary_department": department_id,
+    }
+
+    task = api_client.post(reverse("task-list"), data=task_data, format='json')
+
+    assert task.data.get("success")
+
+    # Change Fake time by 1 hour (11:00)
+    hours_passed = 1
+    freezer.move_to(
+        datetime.datetime.now() + datetime.timedelta(hours=hours_passed)
+    )
+
+    # Create Second Time Tracker by updating task status to IN_PROGRESS
+    all_tasks = api_client.get(reverse("task-list"))
+    task_obj_id = all_tasks.data.get("data")[0].get("id")
+    status_progress = Status.objects.get_or_none(name=BaseStatuses.IN_PROGRESS.name)
+    new_task_status = {"status": status_progress.id}
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task_obj_id}),
+        data=new_task_status,
+        format="json",
+    )
+
+    assert result.data.get("success")
+
+    # Change Fake time by 1 hour (12:00)
+    freezer.move_to(
+        datetime.datetime.now() + datetime.timedelta(hours=hours_passed)
+    )
+
+    # Create Third Time tracker by updating task status to Waiting
+    status_waiting = Status.objects.get_or_none(name=BaseStatuses.WAITING.name)
+    new_task_status = {"status": status_waiting.id}
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task_obj_id}),
+        data=new_task_status,
+        format="json",
+    )
+
+    assert result.data.get("success")
+
+    # Change Fake time by 1 hour (13:00)
+    freezer.move_to(
+        datetime.datetime.now() + datetime.timedelta(hours=hours_passed)
+    )
+
+    # Change start and end time for Second Time tracker ><
+    second_tt = TimeTracker.objects.filter(status=TimeTrackerStatuses.DONE.name).last()
+    second_tt_new_data = {
+        "start_time": second_tt.start_time + datetime.timedelta(minutes=20),
+        "end_time": second_tt.end_time - datetime.timedelta(minutes=20),
+    }
+
+    result = api_client.patch(
+        reverse("time_tracker-detail", kwargs={"pk": second_tt.id}),
+        data=second_tt_new_data,
+    )
+
+    status_in_progress = Status.objects.get_or_none(name=BaseStatuses.IN_PROGRESS.name)
+    second_tt_actual = TimeTracker.objects.get_or_none(task_status=status_in_progress)
+
+    # After updating THIS timetracker time, we will have 2 new timetrackers on the left and on the right side from THIS timetracker.
+    expected_tts_count = 5
+
+    assert result.data.get("success")
+    assert second_tt_actual.start_time == second_tt_new_data.get("start_time")
+    assert second_tt_actual.end_time == second_tt_new_data.get("end_time")
+    assert len(TimeTracker.objects.all()) == expected_tts_count
+
+@pytest.mark.django_db
+@pytest.mark.freeze_time("2023-06-05 10:00:00")
+def test_handle_update_outside_success(api_client, super_user, freezer):
+    fill_up_statuses()
+
+    api_client.force_authenticate(super_user)
+
+    # Create Task with Department and User
+    statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
+    department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
+    department = api_client.post(reverse("department-list"), data=department_data)
+    department_id = department.data.get("data")[0].get("id")
+
+    assert department.data.get("success")
+
+    user = api_client.patch(
+        reverse("account-detail", kwargs={"pk": super_user.id}),
+        data={"department": department_id},
+    )
+
+    assert user.data.get("success")
+
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": "50",
+        "change_time_estimate": 50,
+        "correct_time_estimate": 25,
+        "otk_time_estimate": 15,
+        "quarter": 1,
+        "category": "some category",
+        "user": user.data.get("data")[0].get("id"),
+        "department": department_id,
+        "primary_department": department_id,
+    }
+
+    task = api_client.post(reverse("task-list"), data=task_data, format='json')
+
+    assert task.data.get("success")
+
+    # Change Fake time by 1 hour (11:00)
+    hours_passed = 1
+    freezer.move_to(
+        datetime.datetime.now() + datetime.timedelta(hours=hours_passed)
+    )
+
+    # Create Second Time Tracker by updating task status to IN_PROGRESS
+    all_tasks = api_client.get(reverse("task-list"))
+    task_obj_id = all_tasks.data.get("data")[0].get("id")
+    status_progress = Status.objects.get_or_none(name=BaseStatuses.IN_PROGRESS.name)
+    new_task_status = {"status": status_progress.id}
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task_obj_id}),
+        data=new_task_status,
+        format="json",
+    )
+
+    assert result.data.get("success")
+
+    # Change Fake time by 1 hour (12:00)
+    freezer.move_to(
+        datetime.datetime.now() + datetime.timedelta(hours=hours_passed)
+    )
+
+    # Create Third Time tracker by updating task status to Waiting
+    status_waiting = Status.objects.get_or_none(name=BaseStatuses.WAITING.name)
+    new_task_status = {"status": status_waiting.id}
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task_obj_id}),
+        data=new_task_status,
+        format="json",
+    )
+
+    assert result.data.get("success")
+
+    # Change Fake time by 1 hour (13:00)
+    freezer.move_to(
+        datetime.datetime.now() + datetime.timedelta(hours=hours_passed)
+    )
+
+    # Change start and end time for Second Time tracker <>
+    second_tt = TimeTracker.objects.filter(status=TimeTrackerStatuses.DONE.name).last()
+    second_tt_new_data = {
+        "start_time": second_tt.start_time - datetime.timedelta(minutes=20),
+        "end_time": second_tt.end_time + datetime.timedelta(minutes=20),
+    }
+
+    result = api_client.patch(
+        reverse("time_tracker-detail", kwargs={"pk": second_tt.id}),
+        data=second_tt_new_data,
+    )
+
+    second_tt_actual = TimeTracker.objects.filter(status=TimeTrackerStatuses.DONE.name).last()
+    expected_tts_count = 3
+
+    assert result.data.get("success")
+    assert second_tt_actual.start_time == second_tt_new_data.get("start_time")
+    assert second_tt_actual.end_time == second_tt_new_data.get("end_time")
+    assert len(TimeTracker.objects.all()) == expected_tts_count
+
