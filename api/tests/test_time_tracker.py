@@ -5,6 +5,7 @@ from rest_framework.reverse import reverse
 
 from api.models import TimeTrackerStatuses, TimeTracker, BaseStatuses, Status
 from api.utils import fill_up_statuses
+from kanban.tasks import update_task_time_in_progress
 
 
 @pytest.mark.django_db
@@ -649,4 +650,116 @@ def test_handle_update_outside_success(api_client, super_user, freezer):
     assert second_tt_actual.start_time == second_tt_new_data.get("start_time")
     assert second_tt_actual.end_time == second_tt_new_data.get("end_time")
     assert len(TimeTracker.objects.all()) == expected_tts_count
+
+@pytest.mark.django_db
+@pytest.mark.freeze_time("2023-06-05 10:00:00")
+def test_update_time_trackers_hours(api_client, super_user, freezer):
+    fill_up_statuses()
+
+    api_client.force_authenticate(super_user)
+
+    # Create Task with Department and User
+    statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
+    department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
+    department = api_client.post(reverse("department-list"), data=department_data)
+    department_id = department.data.get("data")[0].get("id")
+
+    assert department.data.get("success")
+
+    user = api_client.patch(
+        reverse("account-detail", kwargs={"pk": super_user.id}),
+        data={"department": department_id},
+    )
+
+    assert user.data.get("success")
+
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": "50",
+        "change_time_estimate": 50,
+        "correct_time_estimate": 25,
+        "otk_time_estimate": 15,
+        "quarter": 1,
+        "category": "some category",
+        "user": user.data.get("data")[0].get("id"),
+        "department": department_id,
+        "primary_department": department_id,
+    }
+
+    task = api_client.post(reverse("task-list"), data=task_data, format='json')
+
+    assert task.data.get("success")
+
+    first_tt = TimeTracker.objects.get_or_none(status=TimeTrackerStatuses.IN_PROGRESS.name)
+
+    # Changing Time by 1 hour (11:00)
+    hours_passed = 1
+    freezer.move_to(
+        datetime.datetime.now() + datetime.timedelta(hours=hours_passed)
+    )
+
+    # Update Time Trackers Time
+    update_task_time_in_progress()
+
+    first_tt_updated = TimeTracker.objects.get_or_none(status=TimeTrackerStatuses.IN_PROGRESS.name)
+
+    assert first_tt.hours + hours_passed == first_tt_updated.hours
+
+    task_2 = api_client.post(reverse("task-list"), data=task_data, format='json')
+
+    assert task.data.get("success")
+
+    # Test update TTs time for 2 tasks
+    first_tt_task_2 = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS.name).last()
+
+    # Changing Time by 2 hour (13:00)
+    hours_passed = 2
+    freezer.move_to(
+        datetime.datetime.now() + datetime.timedelta(hours=hours_passed)
+    )
+
+    # Update Time Trackers Time
+    update_task_time_in_progress()
+
+    first_tt_task_2_updated = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS.name).last()
+
+    assert first_tt_task_2.hours + hours_passed == first_tt_task_2_updated.hours
+
+    # Test update TTs time in Lunch and after business hours AND in Status DONE
+
+    # in Status DONE
+    # Create Second Time Tracker for Task_1 by updating task status to IN_PROGRESS
+    all_tasks = api_client.get(reverse("task-list"))
+    task_obj_id = all_tasks.data.get("data")[0].get("id")
+    status_progress = Status.objects.get_or_none(name=BaseStatuses.IN_PROGRESS.name)
+    new_task_status = {"status": status_progress.id}
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task_obj_id}),
+        data=new_task_status,
+        format="json",
+    )
+
+    assert result.data.get("success")
+
+    first_tt_task_1 = TimeTracker.objects.get_or_none(status=TimeTrackerStatuses.DONE.name)
+    second_tt_task_1 = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS.name).last()
+
+    lunch_time = 1
+    non_working_hours = 2
+
+    # Changing Time by 7 hour (20:00)
+    hours_passed = 7
+    freezer.move_to(
+        datetime.datetime.now() + datetime.timedelta(hours=hours_passed)
+    )
+
+    # Update Time Trackers Time
+    update_task_time_in_progress()
+
+    first_tt_task_1_updated = TimeTracker.objects.get_or_none(status=TimeTrackerStatuses.DONE.name)
+    second_tt_task_1_updated = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS.name).last()
+
+    assert first_tt_task_1.hours == first_tt_task_1_updated.hours
+    assert second_tt_task_1.hours + hours_passed - lunch_time - non_working_hours == second_tt_task_1_updated.hours
+
 
