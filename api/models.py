@@ -341,7 +341,7 @@ class Task(UpdatedModel):
         raw_name: str = "", scale: int = 50
     ) -> bool:
         name = raw_name.strip()
-        checked_name = regex.match(pattern=TASK_NAME_REGEX.get(scale), string=name)
+        checked_name = regex.match(pattern=TASK_NAME_REGEX.get(scale)[0], string=name)
         errors = []
         if not checked_name:
             raise ValidationError(
