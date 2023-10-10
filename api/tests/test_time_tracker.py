@@ -707,7 +707,7 @@ def test_update_time_trackers_hours(api_client, super_user, freezer):
 
     task_2 = api_client.post(reverse("task-list"), data=task_data, format='json')
 
-    assert task.data.get("success")
+    assert task_2.data.get("success")
 
     # Test update TTs time for 2 tasks
     first_tt_task_2 = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS.name).last()
@@ -729,20 +729,16 @@ def test_update_time_trackers_hours(api_client, super_user, freezer):
 
     # in Status DONE
     # Create Second Time Tracker for Task_1 by updating task status to IN_PROGRESS
-    all_tasks = api_client.get(reverse("task-list"))
-    task_obj_id = all_tasks.data.get("data")[0].get("id")
-    status_progress = Status.objects.get_or_none(name=BaseStatuses.IN_PROGRESS.name)
-    new_task_status = {"status": status_progress.id}
     result = api_client.patch(
-        reverse("task-detail", kwargs={"pk": task_obj_id}),
-        data=new_task_status,
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": Status.objects.get_or_none(name=BaseStatuses.IN_PROGRESS.name).id},
         format="json",
     )
 
     assert result.data.get("success")
 
-    first_tt_task_1 = TimeTracker.objects.get_or_none(status=TimeTrackerStatuses.DONE.name)
-    second_tt_task_1 = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS.name).last()
+    tt_1_task_1, tt_2_task_1 = TimeTracker.objects.filter(task_id=task.data.get("data")[0].get("id"))
+    tt_1_task_2 = TimeTracker.objects.get_or_none(task_id=task_2.data.get("data")[0].get("id"))
 
     lunch_time = 1
     non_working_hours = 2
@@ -756,10 +752,11 @@ def test_update_time_trackers_hours(api_client, super_user, freezer):
     # Update Time Trackers Time
     update_task_time_in_progress()
 
-    first_tt_task_1_updated = TimeTracker.objects.get_or_none(status=TimeTrackerStatuses.DONE.name)
-    second_tt_task_1_updated = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS.name).last()
+    tt_1_task_1_updated, tt_2_task_1_updated = TimeTracker.objects.filter(task_id=task.data.get("data")[0].get("id"))
+    tt_1_task_2_updated = TimeTracker.objects.get_or_none(task_id=task_2.data.get("data")[0].get("id"))
 
-    assert first_tt_task_1.hours == first_tt_task_1_updated.hours
-    assert second_tt_task_1.hours + hours_passed - lunch_time - non_working_hours == second_tt_task_1_updated.hours
+    assert tt_1_task_1.hours == tt_1_task_1_updated.hours
+    assert tt_2_task_1.hours + hours_passed - lunch_time - non_working_hours == tt_2_task_1_updated.hours
+    assert tt_1_task_2.hours + hours_passed - lunch_time - non_working_hours == tt_1_task_2_updated.hours
 
 
