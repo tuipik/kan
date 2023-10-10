@@ -191,7 +191,7 @@ class TaskSerializer(serializers.ModelSerializer):
     user_obj = UserBaseSerializer(source="user", read_only=True)
     involved_users = serializers.ManyRelatedField(
         child_relation=InvolvedUsersSerializer(source="user", read_only=True),
-        read_only=True
+        read_only=True,
     )
     department_obj = DepartmentSerializer(source="department", read_only=True)
     quarter_display_value = serializers.CharField(
@@ -242,9 +242,12 @@ class TaskSerializer(serializers.ModelSerializer):
         ]
 
     def check_user_has_only_one_task_in_progress(self):
-        if (user := self.validated_data.get("user")) and self.validated_data.get(
-            "status"
-        ).id in Status.STATUSES_PROGRESS_IDS():
+        status = self.validated_data.get("status")
+        if (
+            (user := self.validated_data.get("user"))
+            and status
+            and status.id in Status.STATUSES_PROGRESS_IDS()
+        ):
             tasks_in_progress = user.user_tasks.filter(
                 status__in=Status.STATUSES_PROGRESS_IDS()
             )
