@@ -68,7 +68,7 @@ def create_task(
         "correct_time_estimate": 25,
         "otk_time_estimate": 15,
         "quarter": 1,
-        "category": "some category",
+        "category": 3,
         "user": user,
         "department": department,
     }

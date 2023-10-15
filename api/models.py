@@ -11,6 +11,7 @@ from django.db.models import Sum
 from rest_framework.exceptions import ValidationError
 
 from api.CONSTANTS import TASK_NAME_REGEX, TASK_NAME_RULES
+from api.fields import RangeIntegerField
 from kanban.settings import business_hours
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -249,7 +250,9 @@ class Task(UpdatedModel):
         choices=YearQuarter.choices, blank=True, verbose_name="Квартал"
     )
     year = models.PositiveIntegerField(default=date.today().year)
-    category = models.CharField(max_length=255, verbose_name="Категорія")
+    category = RangeIntegerField(
+        min_value=3, max_value=10, default=3, verbose_name="Категорія складності"
+    )
     user = models.ForeignKey(
         "User",
         on_delete=models.SET_NULL,

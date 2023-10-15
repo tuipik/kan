@@ -30,7 +30,7 @@ def test_CRUD_tasks_ok(api_client, super_user):
         "correct_time_estimate": 25,
         "otk_time_estimate": 15,
         "quarter": 1,
-        "category": "some category",
+        "category": 3,
         "user": user.data.get("data")[0].get("id"),
         "department": department_id,
         "primary_department": department_id,
@@ -104,7 +104,7 @@ def test_user_already_has_task_in_progress(api_client, super_user, freezer):
         "correct_time_estimate": 25,
         "otk_time_estimate": 15,
         "quarter": 1,
-        "category": "some category",
+        "category": 3,
         "user": None,
         "department": department.id,
     }
