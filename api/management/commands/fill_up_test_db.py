@@ -80,7 +80,7 @@ class Command(BaseCommand):
                             "correct_time_estimate": randint(10, 90),
                             "otk_time_estimate": randint(10, 90),
                             "quarter": 1,
-                            "category": self.fake.sentence(nb_words=6),
+                            "category": randint(3, 10),
                             "user": user,
                             "department": department,
                             "primary_department": department,
