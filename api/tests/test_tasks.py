@@ -25,7 +25,7 @@ def test_task_name_correct(api_client, super_user):
         "correct_time_estimate": 25,
         "otk_time_estimate": 15,
         "quarter": 1,
-        "category": "some category",
+        "category": 3,
         "user": None,
         "department": department_id,
     }
@@ -53,7 +53,7 @@ def test_task_name_incorrect(api_client, super_user):
         "correct_time_estimate": 25,
         "otk_time_estimate": 15,
         "quarter": 1,
-        "category": "some category",
+        "category": 3,
         "user": None,
         "department": department_id,
     }
@@ -379,7 +379,7 @@ def test_check_user_is_department_member_of_task_department(api_client, super_us
         "correct_time_estimate": 25,
         "otk_time_estimate": 15,
         "quarter": 1,
-        "category": "some category",
+        "category": 3,
         "user": None,
         "department": dep_1.id,
         "primary_department": dep_1.id,
@@ -403,4 +403,108 @@ def test_check_user_is_department_member_of_task_department(api_client, super_us
     )
 
     assert not result.data.get("success")
+
+@pytest.mark.django_db
+def test_updating_task_status(api_client, super_user):
+    fill_up_statuses()
+    api_client.force_authenticate(super_user)
+    default_user_num = 3
+
+    # create user with department
+    users_data = default_user_data(default_user_num)
+    user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
+    user_2, dep_2 = create_user_with_department(next(users_data), dep_name="Dep_2")
+    user_3, dep_3 = create_user_with_department(next(users_data), dep_name="Dep_3")
+
+    # Add Statuses for departments
+
+    statuses_for_custom_deps = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
+    statuses_for_correcting_deps = Status.objects.filter(name__in=[BaseStatuses.CORRECTING_QUEUE.name, BaseStatuses.CORRECTING.name])
+
+    result = api_client.patch(
+        reverse("department-detail", kwargs={"pk": dep_1.id}),
+        data={"is_verifier": True,
+              "statuses": [statuses_for_custom_deps[0].id,  statuses_for_custom_deps[1].id]
+              },
+    )
+
+    assert result.data.get("success")
+
+    result = api_client.patch(
+        reverse("department-detail", kwargs={"pk": dep_2.id}),
+        data={"is_verifier": True,
+              "statuses": [statuses_for_custom_deps[0].id,  statuses_for_custom_deps[1].id]
+              },
+    )
+
+    assert result.data.get("success")
+
+    result = api_client.patch(
+        reverse("department-detail", kwargs={"pk": dep_3.id}),
+        data={"is_verifier": True,
+              "statuses": [statuses_for_correcting_deps[0].id, statuses_for_correcting_deps[1].id]
+              },
+    )
+
+    assert result.data.get("success")
+
+    # create task
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": 50,
+        "change_time_estimate": 50,
+        "correct_time_estimate": 25,
+        "otk_time_estimate": 15,
+        "quarter": 1,
+        "category": 3,
+        "user": user_1.id,
+        "department": dep_1.id,
+        "primary_department": dep_1.id,
+    }
+    task = api_client.post(reverse("task-list"), data=task_data, format="json")
+
+    # Changing department by user (not-verifier to not-verifier) - Working only when User = None
+    # update task
+    api_client.logout()
+    api_client.force_authenticate(user_1)
+
+    # Changing task status inside department (from Waiting to In_Progress) -> department == primary_department
+    new_task_status = Status.objects.get_or_none(name="IN_PROGRESS").id
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert result.data.get("department") == result.data.get("primary_department")
+
+    # result = api_client.patch(
+    #     reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+    #     data={"department": dep_2.id, "user": None},
+    #     format="json",
+    # )
+    #
+    # assert result.data.get("success")
+    # assert not result.data.get("errors")
+
+    # Changing task status to CORRECTING by user from not-verifier department - Error
+    # result = api_client.patch(
+    #     reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+    #     data={"user": user_3.id},
+    #     format="json",
+    # )
+    #
+    # assert result.data.get("success")
+
+    # Changing status to Correcting by user from custom department -> user can't change to Correcting (only to Correcting_Queue)
+    new_task_status = Status.objects.get_or_none(name="CORRECTING").id
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status, "user": user_3.id},
+        format="json",
+    )
+
+    assert not result.data.get("success")
+    assert result.data.get("errors")[0].get("attr") == "status"
 
