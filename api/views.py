@@ -301,10 +301,19 @@ class TaskViewSet(ResponseModelViewSet):
 
     def get_queryset(self, *args, **kwargs):
         current_user = self.request.user
+        order = self.request.query_params.get('order', 'id')
+        task_fields_order = []
+        for field in Task.get_field_names():
+            task_fields_order.append(field)
+            task_fields_order.append(f"-{field}")
+
+        if order not in task_fields_order:
+            order = 'id'
+
         if current_user.is_admin or current_user.department.is_verifier:
-            return Task.objects.all()
+            return Task.objects.all().order_by(order)
         else:
-            return Task.objects.filter(primary_department_id=current_user.department.id)
+            return Task.objects.filter(primary_department_id=current_user.department.id).order_by(order)
 
 
 class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
