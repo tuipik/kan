@@ -46,6 +46,10 @@ class UpdatedModel(models.Model, metaclass=MetaModelBase):
     class Meta:
         abstract = True
 
+    @classmethod
+    def get_field_names(cls):
+        return [f.name for f in cls._meta.fields]
+
 
 class UserManager(BaseUserManager, GetObjectManager):
     def create_user(
