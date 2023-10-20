@@ -3,6 +3,7 @@ from django.core.exceptions import BadRequest
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_standardized_errors.handler import exception_handler
 from rest_framework import status as http_status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import (
     IsAuthenticated,
     IsAdminUser,
@@ -275,6 +276,9 @@ class TaskViewSet(ResponseModelViewSet):
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
+        if not self.request.user.is_admin and request.data.get("department"):
+            request.data.pop("department")
+
         if stat_id := request.data.get("status"):
             self.request.user.can_change_task_status_to_progress(stat_id)
             department = Department.objects.filter(statuses=stat_id)
@@ -301,19 +305,21 @@ class TaskViewSet(ResponseModelViewSet):
 
     def get_queryset(self, *args, **kwargs):
         current_user = self.request.user
-        order = self.request.query_params.get('order', 'id')
+        order = self.request.query_params.get("order", "id")
         task_fields_order = []
         for field in Task.get_field_names():
             task_fields_order.append(field)
             task_fields_order.append(f"-{field}")
 
         if order not in task_fields_order:
-            order = 'id'
+            order = "id"
 
         if current_user.is_admin or current_user.department.is_verifier:
             return Task.objects.all().order_by(order)
         else:
-            return Task.objects.filter(primary_department_id=current_user.department.id).order_by(order)
+            return Task.objects.filter(
+                primary_department_id=current_user.department.id
+            ).order_by(order)
 
 
 class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
@@ -390,6 +396,10 @@ class DefaultsView(APIView):
                 status.value: status.label for status in TimeTrackerStatuses
             },
             "YEAR_QUARTERS": {quarter.value: quarter.label for quarter in YearQuarter},
+            "POSSIBLE_TASK_YEARS": [
+                year.get("year")
+                for year in Task.objects.values("year").distinct().order_by("-year")
+            ],
         }
         return Response(
             ResponseInfo(
