@@ -4,11 +4,14 @@ import pytest
 from rest_framework.reverse import reverse
 
 from api.models import TimeTrackerStatuses, TimeTracker
+from api.utils import fill_up_statuses
 
 
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 09:00:00")
 def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
+    fill_up_statuses()
+
     api_client.force_authenticate(super_user)
 
     department_data = {"name": "test_department"}
@@ -28,7 +31,7 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
         "correct_time_estimate": 25,
         "otk_time_estimate": 15,
         "quarter": 1,
-        "category": "some category",
+        "category": 3,
         "user": user.data.get("data")[0].get("id"),
         "department": department_id,
         "primary_department": department_id,

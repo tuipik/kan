@@ -47,6 +47,9 @@ CORS_ORIGIN_WHITELIST = (
        'http://127.0.0.1:3000',
        'http://0.0.0.0:8000',
        'http://0.0.0.0:3000',
+       'http://0.0.0.0:80',
+       'http://127.0.0.1',
+       'http://localhost',
 )
 CORS_ALLOW_CREDENTIALS = True
 
@@ -202,7 +205,7 @@ TIME_ZONE = 'Europe/Kiev'
 
 USE_I18N = True
 
-USE_TZ = True
+# USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)

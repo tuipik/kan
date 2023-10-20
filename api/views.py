@@ -1,8 +1,8 @@
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate
 from django.core.exceptions import BadRequest
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_standardized_errors.handler import exception_handler
-from rest_framework import status
+from rest_framework import status as http_status
 from rest_framework.permissions import (
     IsAuthenticated,
     IsAdminUser,
@@ -15,9 +15,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .CONSTANTS import (
     TASK_NAME_REGEX,
-    TASK_STATUSES,
-    TIME_TRACKER_STATUSES,
-    YEAR_QUARTERS, TASK_SCALES,
 )
 from .filters import (
     UserFilter,
@@ -31,7 +28,18 @@ from .kan_permissions import (
     OwnerOrAdminOrReadOnly,
     TimeTrackerChangeIsAdminOrIsDepartmentHead,
 )
-from .models import User, Department, Task, Comment, TimeTracker
+from .models import (
+    User,
+    Department,
+    Task,
+    Comment,
+    TimeTracker,
+    Status,
+    BaseStatuses,
+    TaskScales,
+    YearQuarter,
+    TimeTrackerStatuses,
+)
 from .serializers import (
     UserCreateSerializer,
     PasswordChangeSerializer,
@@ -43,6 +51,7 @@ from .serializers import (
     UserUpdateSerializer,
     DepartmentCreateSerializer,
     UserBaseSerializer,
+    StatusSerializer,
 )
 from .utils import ResponseInfo
 
@@ -174,11 +183,11 @@ class LoginView(APIView):
                     data_len=len([user_serialized]),
                     message="Login Success",
                 ).response,
-                status=status.HTTP_200_OK,
+                status=http_status.HTTP_200_OK,
             )
         return Response(
             ResponseInfo(success=False, message="Invalid Credentials").response,
-            status=status.HTTP_401_UNAUTHORIZED,
+            status=http_status.HTTP_401_UNAUTHORIZED,
         )
 
 
@@ -187,20 +196,19 @@ class LogoutView(APIView):
         refresh_token = request.data["refresh"]
         try:
             refresh_token = RefreshToken(refresh_token)
-            user = User.objects.get(id=refresh_token.payload["user_id"])
+            user = User.objects.get_or_none(id=refresh_token.payload["user_id"])
         except AttributeError:
             user = "Undefined"
         refresh_token.blacklist()
         return Response(
             ResponseInfo(success=True, message=f"{user.username} Logged out").response,
-            status=status.HTTP_200_OK,
+            status=http_status.HTTP_200_OK,
         )
 
 
 class ChangePasswordView(APIView):
-    permission_classes = [
-        IsAuthenticated,
-    ]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
         serializer = PasswordChangeSerializer(
@@ -211,7 +219,7 @@ class ChangePasswordView(APIView):
         request.user.save()
         return Response(
             ResponseInfo(success=True, message="Password changed").response,
-            status=status.HTTP_200_OK,
+            status=http_status.HTTP_200_OK,
         )
 
 
@@ -256,9 +264,28 @@ class TaskViewSet(ResponseModelViewSet):
     filterset_class = TaskFilter
 
     def create(self, request, *args, **kwargs):
-        if (dep := self.request.data.get('department')) and not self.request.data.get('primary_department'):
-            self.request.data.update({'primary_department': dep})
+        if (dep := request.data.get("department")) and not request.data.get(
+            "primary_department"
+        ):
+            request.data.update({"primary_department": dep})
+
+        request.data.update(
+            {"status": Status.objects.get_or_none(name=BaseStatuses.WAITING.name).id}
+        )
         return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        if stat_id := request.data.get("status"):
+            self.request.user.can_change_task_status_to_progress(stat_id)
+            department = Department.objects.filter(statuses=stat_id)
+            if department.count() == 1 and department[0].is_verifier:
+                request.data.update({"department": department[0].id})
+                if not request.data.get("user"):
+                    request.data.update({"user": None})
+            else:
+                instance = self.get_object()
+                request.data.update({"department": instance.primary_department_id})
+        return super().update(request, *args, **kwargs)
 
     def get_permissions(self):
         if self.action in [
@@ -274,10 +301,19 @@ class TaskViewSet(ResponseModelViewSet):
 
     def get_queryset(self, *args, **kwargs):
         current_user = self.request.user
+        order = self.request.query_params.get('order', 'id')
+        task_fields_order = []
+        for field in Task.get_field_names():
+            task_fields_order.append(field)
+            task_fields_order.append(f"-{field}")
+
+        if order not in task_fields_order:
+            order = 'id'
+
         if current_user.is_admin or current_user.department.is_verifier:
-            return Task.objects.all()
+            return Task.objects.all().order_by(order)
         else:
-            return Task.objects.filter(primary_department_id=current_user.department.id)
+            return Task.objects.filter(primary_department_id=current_user.department.id).order_by(order)
 
 
 class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
@@ -304,6 +340,29 @@ class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_class = TimeTrackerFilter
 
+    def get_queryset(self, *args, **kwargs):
+        if self.request.user.is_admin:
+            return TimeTracker.objects.all()
+        elif self.request.user.is_head_department:
+            return TimeTracker.objects.filter(
+                user__department_id=self.request.user.department.id
+            )
+        else:
+            return TimeTracker.objects.filter(user_id=self.request.user.id)
+
+    def update(self, request, *args, **kwargs):
+        obj = self.get_object()
+
+        start_time = request.data.get("start_time")
+        if start_time:
+            obj.handle_update_time(changed_time=start_time, is_start=True)
+
+        end_time = request.data.get("end_time")
+        if end_time:
+            obj.handle_update_time(changed_time=end_time, is_start=False)
+
+        return super().update(request, *args, **kwargs)
+
 
 class CommentViewSet(ResponseModelViewSet):
     queryset = Comment.objects.all()
@@ -321,13 +380,23 @@ class DefaultsView(APIView):
 
     def get(self, request, format=None):
         constants = {
+            "STATUSES": [StatusSerializer(stat).data for stat in Status.objects.all()],
+            "STATUSES_PROGRESS_IDS": sorted(Status.STATUSES_PROGRESS_IDS()),
+            "STATUSES_IDLE_IDS": sorted(Status.STATUSES_IDLE_IDS()),
+            "STATUS_DONE_ID": Status.STATUS_DONE_ID(),
             "TASK_NAME_REGEX": TASK_NAME_REGEX,
-            "TASK_STATUSES": TASK_STATUSES,
-            "TASK_SCALES": TASK_SCALES,
-            "TIME_TRACKER_STATUSES": TIME_TRACKER_STATUSES,
-            "YEAR_QUARTERS": YEAR_QUARTERS,
+            "TASK_SCALES": {scale.value: scale.label for scale in TaskScales},
+            "TIME_TRACKER_STATUSES": {
+                status.value: status.label for status in TimeTrackerStatuses
+            },
+            "YEAR_QUARTERS": {quarter.value: quarter.label for quarter in YearQuarter},
         }
         return Response(
-            ResponseInfo(success=True, data=[constants, ]).response,
-            status=status.HTTP_200_OK,
+            ResponseInfo(
+                success=True,
+                data=[
+                    constants,
+                ],
+            ).response,
+            status=http_status.HTTP_200_OK,
         )

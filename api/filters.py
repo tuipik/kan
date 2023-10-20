@@ -12,6 +12,7 @@ class UserFilter(django_filters.FilterSet):
             "last_name": ["exact", "contains", "icontains"],
             "department__id": ["exact"],
             "department__name": ["exact", "contains", "icontains"],
+            "department__statuses__id": ["exact", "contains", "icontains"],
             "is_active": ["exact"],
         }
 
@@ -39,12 +40,12 @@ class TaskFilter(django_filters.FilterSet):
             "user__username": ["exact", "contains", "icontains"],
             "user__first_name": ["exact", "contains", "icontains"],
             "user__last_name": ["exact", "contains", "icontains"],
-            "quarter": ["exact"],
+            "quarter": ["exact", "in"],
             "year": ["exact", "gt", "gte", "lt", "lte"],
             "change_time_estimate": ["exact", "gt", "gte", "lt", "lte"],
             "correct_time_estimate": ["exact", "gt", "gte", "lt", "lte"],
             "otk_time_estimate": ["exact", "gt", "gte", "lt", "lte"],
-            "category": ["icontains"],
+            "category": ["exact", "gt", "gte", "lt", "lte"],
             "done": ["exact", "gt", "gte", "lt", "lte"],
         }
 
