@@ -396,6 +396,10 @@ class DefaultsView(APIView):
                 status.value: status.label for status in TimeTrackerStatuses
             },
             "YEAR_QUARTERS": {quarter.value: quarter.label for quarter in YearQuarter},
+            "POSSIBLE_TASK_YEARS": [
+                year.get("year")
+                for year in Task.objects.values("year").distinct().order_by("-year")
+            ],
         }
         return Response(
             ResponseInfo(

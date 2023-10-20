@@ -21,7 +21,7 @@ services:
       - "8000:8000"
     environment:
       - DEBUG=1
-      - SECRET_KEY=django-insecure-3a_)xg#or1ttpiyn8etg=&q&#&lkwx8l&y_$(h#hvgkp1agvjo
+      - SECRET_KEY=django-insecure-3a_)xg#or1ttpiyn8etg=&q&#&lkwx8l&y_$$(h#hvgkp1agvjo
       - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 0.0.0.0 [::1]
       - DB_HOST=db
       - DB_PORT=5432
@@ -48,7 +48,7 @@ services:
       - POSTGRES_PASSWORD=supersecretpassword
   redis:
     container_name: kan_redis
-    image: redis:alpine
+    image: redis:7.2.2-alpine
   celery:
     container_name: kan_celery
     build: .
@@ -57,7 +57,7 @@ services:
       - .:/kan
     environment:
       - DEBUG=1
-      - SECRET_KEY=django-insecure-3a_)xg#or1ttpiyn8etg=&q&#&lkwx8l&y_$(h#hvgkp1agvjo
+      - SECRET_KEY=django-insecure-3a_)xg#or1ttpiyn8etg=&q&#&lkwx8l&y_$$(h#hvgkp1agvjo
       - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 0.0.0.0 [::1]
       - DB_HOST=db
       - DB_PORT=5432
@@ -77,7 +77,7 @@ services:
       - .:/kan
     environment:
       - DEBUG=1
-      - SECRET_KEY=django-insecure-3a_)xg#or1ttpiyn8etg=&q&#&lkwx8l&y_$(h#hvgkp1agvjo
+      - SECRET_KEY=django-insecure-3a_)xg#or1ttpiyn8etg=&q&#&lkwx8l&y_$$(h#hvgkp1agvjo
       - DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 0.0.0.0 [::1]
       - DB_HOST=db
       - DB_PORT=5432
