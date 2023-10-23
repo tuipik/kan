@@ -23,3 +23,5 @@
 **/celerybeat.pid
 **/celerybeat-schedule
 **/db.sqlite3
+envs/env_dev
+envs/env_prod
