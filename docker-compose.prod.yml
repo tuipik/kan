@@ -1,12 +1,12 @@
 version: '3.10'
 
 volumes:
-  postgres_data_dev:
-  kan_db_backups_dev:
+  postgres_data:
+  kan_db_backups:
 
 services:
-  api_dev:
-    container_name: kan_api_dev
+  api:
+    container_name: kan_api
     restart: always
     build:
       context: .
@@ -20,55 +20,55 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - envs/env_dev
+      - envs/env_prod
     depends_on:
-      - db_dev
-      - redis_dev
-  db_dev:
-    container_name: kan_db_dev
+      - db
+      - redis
+  db:
+    container_name: kan_db
     image: postgres:15
     restart: always
     ports:
       - "5432:5432"
     volumes:
-      - ${HOME}/postgres_data_dev:/var/lib/postgresql/data/
+      - ${HOME}/postgres_data:/var/lib/postgresql/data/
     env_file:
-      - envs/env_dev
-  redis_dev:
-    container_name: kan_redis_dev
+      - envs/env_prod
+  redis:
+    container_name: kan_redis
     image: redis:7.2.2-alpine
-  celery_dev:
-    container_name: kan_celery_dev
+  celery:
+    container_name: kan_celery
     build: .
     command: celery -A kanban worker -l info
     volumes:
       - .:/kan
     env_file:
-      - envs/env_dev
+      - envs/env_prod
     depends_on:
-      - redis_dev
-  celery-beat_dev:
-    container_name: kan_celery_beat_dev
+      - redis
+  celery-beat:
+    container_name: kan_celery_beat
     build: .
     command: celery -A kanban beat -l info
     volumes:
       - .:/kan
     env_file:
-      - envs/env_dev
+      - envs/env_prod
     depends_on:
-      - redis_dev
-  pgbackups_dev:
-    container_name: kan_backup_dev
+      - redis
+  pgbackups:
+    container_name: kan_backup
     image: prodrigestivill/postgres-backup-local
     restart: always
     volumes:
-      - ${HOME}/kan_db_backups_dev:/backups
+      - ${HOME}/kan_db_backups:/backups
     links:
-      - db_dev:db_dev
+      - db:db
     depends_on:
-      - db_dev
+      - db
     env_file:
-      - envs/env_dev
+      - envs/env_prod
     environment:
       - POSTGRES_EXTRA_OPTS=-Z9 --schema=public --blobs
       - SCHEDULE=@daily
