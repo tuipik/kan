@@ -361,11 +361,11 @@ class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
 
         start_time = request.data.get("start_time")
         if start_time:
-            obj.handle_update_time(changed_time=start_time, is_start=True)
+            obj.handle_update_time(changed_time=start_time, is_start_time=True)
 
         end_time = request.data.get("end_time")
         if end_time:
-            obj.handle_update_time(changed_time=end_time, is_start=False)
+            obj.handle_update_time(changed_time=end_time, is_start_time=False)
 
         return super().update(request, *args, **kwargs)
 
