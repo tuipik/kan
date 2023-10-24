@@ -71,7 +71,7 @@ def create_task(
         "status": status[0],
         "change_time_estimate": 50,
         "correct_time_estimate": 25,
-        "otk_time_estimate": 15,
+        "vtk_time_estimate": 15,
         "quarter": 1,
         "category": 3,
         "user": user,
