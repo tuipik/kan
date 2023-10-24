@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from random import choice, randint
 
 from django.core.management.base import BaseCommand
@@ -19,7 +19,7 @@ from api.models import (
 class Command(BaseCommand):
     """Django command to fill up develop db"""
 
-    fake = Faker()
+    fake = Faker('uk_UA')
 
     def create_user(self, dep, num):
         user = User.objects.create_user(
@@ -34,11 +34,11 @@ class Command(BaseCommand):
 
     def create_departments(self):
         deps = [
-            ("Dep_1", False, [1, 2]),
-            ("Dep_2", False, [1, 2]),
-            ("Dep_3", False, [1, 2]),
-            ("CORRECT", True, [3, 4]),
-            ("VTK", True, [5, 6]),
+            ("ГІЗ", False, [1, 2]),
+            ("ВЕК", False, [1, 2]),
+            ("ВЦК", False, [1, 2]),
+            ("КОРЕКТУРА", True, [3, 4]),
+            ("ВТК", True, [5, 6]),
         ]
         user_counter = 1
         for dep in deps:
@@ -47,8 +47,9 @@ class Command(BaseCommand):
             department.save()
             user_1 = self.create_user(department, user_counter)
             user_counter += 1
-            user_2 = self.create_user(department, user_counter)
-            user_counter += 1
+            for _ in range(4):
+                self.create_user(department, user_counter)
+                user_counter += 1
             department.head = user_1
             department.save()
             self.stdout.write(f"Created department: {department.name}")
@@ -67,7 +68,7 @@ class Command(BaseCommand):
                     success = False
                     task_name = ""
                     while not success:
-                        name = f"{choice(ROW_LATIN_LETTERS)}-{randint(32, 38)}-{randint(1, 144)}-{choice(CYRILLIC_LETTERS_UP)}"
+                        name = f"{choice(['K', 'L', 'M', 'N'])}-{randint(32, 38)}-{randint(1, 144)}-{choice(CYRILLIC_LETTERS_UP)}"
                         if name not in names:
                             names.append(name)
                             task_name = name
@@ -76,9 +77,9 @@ class Command(BaseCommand):
                     task = Task.objects.create(
                         **{
                             "name": task_name,
-                            "change_time_estimate": randint(10, 90),
-                            "correct_time_estimate": randint(10, 90),
-                            "otk_time_estimate": randint(10, 90),
+                            "change_time_estimate": randint(16, 90),
+                            "correct_time_estimate": randint(16, 90),
+                            "vtk_time_estimate": randint(10, 90),
                             "quarter": 1,
                             "category": randint(3, 10),
                             "user": user,
@@ -89,9 +90,11 @@ class Command(BaseCommand):
                             "scale": 50,
                         }
                     )
+                    task.created = datetime.now() - timedelta(days=6)
+                    task.save()
 
                     TimeTracker.objects.create(
-                        task=task, user=User.objects.first(), task_status=status
+                        task=task, user=User.objects.first(), task_status=status, start_time=task.created
                     )
                     Comment.objects.create(
                         task=task,

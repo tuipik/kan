@@ -220,7 +220,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "change_time_done",
             "correct_time_estimate",
             "correct_time_done",
-            "otk_time_estimate",
+            "vtk_time_estimate",
             "otk_time_done",
             "status",
             "status_obj",
