@@ -309,7 +309,7 @@ class Task(UpdatedModel):
         return hours_sum.get("total_hours") or 0
 
     @property
-    def otk_time_done(self):
+    def vtk_time_done(self):
         hours_sum = self.task_time_trackers.filter(
             task_status=Status.objects.get_or_none(name=BaseStatuses.VTK.name).id
         ).aggregate(total_hours=Sum("hours"))

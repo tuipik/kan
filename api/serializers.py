@@ -203,7 +203,7 @@ class TaskSerializer(serializers.ModelSerializer):
     )
     change_time_done = serializers.IntegerField(read_only=True)
     correct_time_done = serializers.IntegerField(read_only=True)
-    otk_time_done = serializers.IntegerField(read_only=True)
+    vtk_time_done = serializers.IntegerField(read_only=True)
     created = serializers.DateTimeField(
         read_only=True, format=settings.REST_FRAMEWORK["DATETIME_FORMAT"]
     )
@@ -221,7 +221,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "correct_time_estimate",
             "correct_time_done",
             "vtk_time_estimate",
-            "otk_time_done",
+            "vtk_time_done",
             "status",
             "status_obj",
             "scale",
