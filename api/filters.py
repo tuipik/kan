@@ -44,7 +44,7 @@ class TaskFilter(django_filters.FilterSet):
             "year": ["exact", "gt", "gte", "lt", "lte"],
             "change_time_estimate": ["exact", "gt", "gte", "lt", "lte"],
             "correct_time_estimate": ["exact", "gt", "gte", "lt", "lte"],
-            "otk_time_estimate": ["exact", "gt", "gte", "lt", "lte"],
+            "vtk_time_estimate": ["exact", "gt", "gte", "lt", "lte"],
             "category": ["exact", "gt", "gte", "lt", "lte"],
             "done": ["exact", "gt", "gte", "lt", "lte"],
         }

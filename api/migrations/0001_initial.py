@@ -140,7 +140,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "otk_time_estimate",
+                    "vtk_time_estimate",
                     models.PositiveIntegerField(default=0, verbose_name="Час на ОТК"),
                 ),
                 (

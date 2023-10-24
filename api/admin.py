@@ -118,7 +118,7 @@ class TaskAdmin(admin.ModelAdmin):
         "quarter",
         "change_time_estimate",
         "correct_time_estimate",
-        "otk_time_estimate",
+        "vtk_time_estimate",
         "category",
         "done",
     )

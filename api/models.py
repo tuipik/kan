@@ -233,7 +233,7 @@ class Task(UpdatedModel):
     correct_time_estimate = models.PositiveIntegerField(
         default=0, verbose_name="Час на корегування"
     )
-    otk_time_estimate = models.PositiveIntegerField(
+    vtk_time_estimate = models.PositiveIntegerField(
         default=0, verbose_name="Час на ОТК"
     )
     status = models.ForeignKey(
