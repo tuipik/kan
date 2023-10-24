@@ -50,6 +50,7 @@ CORS_ORIGIN_WHITELIST = (
        'http://0.0.0.0:80',
        'http://127.0.0.1',
        'http://localhost',
+       'http://192.168.101.186:8000',
 )
 CORS_ALLOW_CREDENTIALS = True
 
