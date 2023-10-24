@@ -165,7 +165,7 @@ class TimeTrackerSerializer(serializers.ModelSerializer):
             "hours",
             "task_status",
         ]
-        read_only_fields = ("start_time", "hours")
+        read_only_fields = ("hours",)
 
 
 class InvolvedUsersSerializer(serializers.ModelSerializer):
@@ -242,19 +242,8 @@ class TaskSerializer(serializers.ModelSerializer):
         ]
 
     def check_user_has_only_one_task_in_progress(self):
-        user = self.validated_data.get("user")
-        if not user and self.instance:
-            user = self.instance.user
-
         status = self.validated_data.get("status")
-        if not status and self.instance:
-            status = self.instance.status
-
-        if (
-            user
-            and status
-            and status.id in Status.STATUSES_PROGRESS_IDS()
-        ):
+        if (user := self.validated_data.get("user")) and status and status.id in Status.STATUSES_PROGRESS_IDS():
             tasks_in_progress = user.user_tasks.filter(
                 status__in=Status.STATUSES_PROGRESS_IDS()
             )

@@ -54,6 +54,7 @@ class TimeTrackerFilter(django_filters.FilterSet):
     class Meta:
         model = TimeTracker
         fields = {
+            "id": ["exact", "in", "gt", "gte", "lt", "lte"],
             "task__id": ["exact", "in"],
             "task__name": ["exact", "in", "contains", "icontains"],
             "user__id": ["exact"],
