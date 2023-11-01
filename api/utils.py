@@ -46,9 +46,9 @@ def fill_up_statuses(*args, **options):
     stdout.write('Start checking and adding statuses to db\n')
     any_created = False
     for status in BaseStatuses:
-        instance, created = Status.objects.get_or_create(name=status.name, translation=status.value)
+        instance, created = Status.objects.get_or_create(name=status.value, translation=status.label)
         if created:
-            stdout.write(f'Added a new status: {status.name}\n')
+            stdout.write(f'Added a new status: {status.value}\n')
             any_created = True
     if not any_created:
         stdout.write(f'Any new status was added\n')

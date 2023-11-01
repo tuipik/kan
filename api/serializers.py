@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -24,17 +24,13 @@ class StatusSerializer(serializers.ModelSerializer):
 class DepartmentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Department
-        fields = ["id", "name", "is_verifier", "statuses"]
+        fields = ["id", "name", "is_verifier"]
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
-    statuses = serializers.PrimaryKeyRelatedField(
-        many=True, queryset=Status.objects.all()
-    )
-
     class Meta:
         model = Department
-        fields = ["id", "name", "head", "is_verifier", "statuses"]
+        fields = ["id", "name", "head", "is_verifier"]
 
     def save(self):
         if user_id := self.initial_data.get("head"):
@@ -80,6 +76,7 @@ class UserBaseSerializer(serializers.ModelSerializer):
             "department",
             "department_obj",
             "is_admin",
+            "role",
             "is_head_department",
         ]
 
@@ -104,6 +101,7 @@ class UserCreateSerializer(UserBaseSerializer):
         fields = UserBaseSerializer.Meta.fields + [
             "password",
             "password2",
+            # "role"
         ]
         extra_kwargs = {"password": {"write_only": True, "label": "Пароль"}}
 
@@ -113,11 +111,12 @@ class UserCreateSerializer(UserBaseSerializer):
             first_name=self.validated_data["first_name"],
             last_name=self.validated_data["last_name"],
             department=self.validated_data.get("department", None),
+            role=self.validated_data.get("role", None),
         )
         password = self.validated_data["password"]
         password2 = self.validated_data["password2"]
         if password != password2:
-            raise serializers.ValidationError({"password": "Passwords do not match."})
+            raise serializers.ValidationError({"password": "Паролі не співпадають."})
         user.set_password(password)
         user.save()
         return user
@@ -142,7 +141,7 @@ class PasswordChangeSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs["new_password"] != attrs["new_password_2"]:
             raise serializers.ValidationError(
-                {"password": "New passwords do not match"}
+                {"password": "Нові паролі не співпадають."}
             )
         return attrs
 
@@ -164,6 +163,7 @@ class TimeTrackerSerializer(serializers.ModelSerializer):
             "end_time",
             "hours",
             "task_status",
+            "task_department",
         ]
         read_only_fields = ("hours",)
 
@@ -181,6 +181,7 @@ class InvolvedUsersSerializer(serializers.ModelSerializer):
             "last_name",
             "department",
             "department_name",
+            "role",
         ]
 
 
@@ -201,9 +202,9 @@ class TaskSerializer(serializers.ModelSerializer):
     scale_display_value = serializers.CharField(
         source="get_scale_display", read_only=True
     )
-    change_time_done = serializers.IntegerField(read_only=True)
-    correct_time_done = serializers.IntegerField(read_only=True)
-    vtk_time_done = serializers.IntegerField(read_only=True)
+    editing_time_done = serializers.IntegerField(read_only=True)
+    correcting_time_done = serializers.IntegerField(read_only=True)
+    tc_time_done = serializers.IntegerField(read_only=True)
     created = serializers.DateTimeField(
         read_only=True, format=settings.REST_FRAMEWORK["DATETIME_FORMAT"]
     )
@@ -216,12 +217,12 @@ class TaskSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
-            "change_time_estimate",
-            "change_time_done",
-            "correct_time_estimate",
-            "correct_time_done",
-            "vtk_time_estimate",
-            "vtk_time_done",
+            "editing_time_estimate",
+            "editing_time_done",
+            "correcting_time_estimate",
+            "correcting_time_done",
+            "tc_time_estimate",
+            "tc_time_done",
             "status",
             "status_obj",
             "scale",
@@ -235,7 +236,6 @@ class TaskSerializer(serializers.ModelSerializer):
             "involved_users",
             "department",
             "department_obj",
-            "primary_department",
             "done",
             "created",
             "updated",
@@ -243,7 +243,11 @@ class TaskSerializer(serializers.ModelSerializer):
 
     def check_user_has_only_one_task_in_progress(self):
         status = self.validated_data.get("status")
-        if (user := self.validated_data.get("user")) and status and status.id in Status.STATUSES_PROGRESS_IDS():
+        if (
+            (user := self.validated_data.get("user"))
+            and status
+            and status.id in Status.STATUSES_PROGRESS_IDS()
+        ):
             tasks_in_progress = user.user_tasks.filter(
                 status__in=Status.STATUSES_PROGRESS_IDS()
             )
@@ -257,22 +261,35 @@ class TaskSerializer(serializers.ModelSerializer):
                 )
 
     def _check_user_for_progress_status(self):
+        stat = self.validated_data.get("status")
         if (
-            stat := self.validated_data.get("status").id
-        ) in Status.STATUSES_PROGRESS_IDS() and not self.validated_data.get("user"):
-            if not self.instance.user or (
-                self.instance.user
-                and not self.instance.user.department.statuses.filter(id=stat)
-            ):
+            stat
+            and (stat.id in Status.STATUSES_PROGRESS_IDS())
+            and not self.validated_data.get("user")
+        ):
+            if not self.instance.user:
                 raise ValidationError(
                     {
-                        "user": "Для переводу задачі в статус 'В роботі' має бути вказаний виконавець"
+                        "user": f"Для переводу задачі в статус '{stat.name}' має бути вказаний виконавець"
                     }
                 )
 
     def _check_user_is_department_member_of_task_department(self):
         user = self.validated_data.get("user")
         department = self.validated_data.get("department")
+
+        if (
+            department
+            and self.instance
+            and department.id != self.instance.department_id
+            and not self.context.get("request").user.is_admin
+            or self.context.get("request").user.id != self.instance.department.head.id
+        ):
+            raise ValidationError(
+                {
+                    "department": "Відділ може змінити тільки адміністратор або керівник відділу для якого створено задачу"
+                }
+            )
         if user and department:
             if user.department_id != department.id:
                 raise ValidationError(
@@ -350,6 +367,11 @@ class TaskSerializer(serializers.ModelSerializer):
             if (
                 self.instance.status.id == Status.STATUS_DONE_ID()
                 and validated_status.id != Status.STATUS_DONE_ID()
+                and (
+                    self.context.get("request").user.is_admin
+                    or self.context.get("request").user.id
+                    == self.instance.department.head.id
+                )
             ):
                 self.instance.done = None
                 super().save()

@@ -69,9 +69,9 @@ def create_task(
     data = {
         "name": name,
         "status": status[0],
-        "change_time_estimate": 50,
-        "correct_time_estimate": 25,
-        "vtk_time_estimate": 15,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
         "quarter": 1,
         "category": 3,
         "user": user,

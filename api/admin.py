@@ -9,6 +9,40 @@ from django.utils.safestring import mark_safe
 from .models import User, Department, Task, TimeTracker, Comment
 
 
+class AdditionForeignField:
+    def user_name(self, obj):
+        if obj.user:
+            return f'{obj.user.first_name} {obj.user.last_name}'
+
+    user_name.short_description = "Виконавець"
+
+    def head_name(self, obj):
+        if obj.head:
+            return f'{obj.head.first_name} {obj.head.last_name}'
+
+    head_name.short_description = "Керівник відділу"
+
+    def status_name(self, obj):
+        return obj.status.translation
+
+    status_name.short_description = 'Статус'
+
+    def task_status_name(self, obj):
+        return obj.task_status.translation
+
+    task_status_name.short_description = 'Статус задачі'
+
+    def department_name(self, obj):
+        return obj.department.name
+
+    department_name.short_description = 'Відділ'
+
+    def task_name(self, obj):
+        return obj.task.name
+
+    task_name.short_description = 'Задача'
+
+
 class UserCreationForm(forms.ModelForm):
     password1 = forms.CharField(label="Password", widget=forms.PasswordInput)
     password2 = forms.CharField(
@@ -62,6 +96,8 @@ class UserAdmin(BaseUserAdmin):
         "last_name",
         "department",
         "is_active",
+        "role",
+        "is_admin",
     )
     list_filter = ("department", "is_active")
     fieldsets = (
@@ -100,8 +136,8 @@ class UserAdmin(BaseUserAdmin):
     filter_horizontal = ()
 
 
-class DepartmentAdmin(admin.ModelAdmin):
-    list_display = ("name", "head")
+class DepartmentAdmin(admin.ModelAdmin, AdditionForeignField):
+    list_display = ("name", "head_name", "is_verifier")
     search_fields = ("name",)
     ordering = ("name",)
 
@@ -109,17 +145,19 @@ class DepartmentAdmin(admin.ModelAdmin):
         model = Department
 
 
-class TaskAdmin(admin.ModelAdmin):
+class TaskAdmin(admin.ModelAdmin, AdditionForeignField):
     list_display = (
         "name",
-        "status",
-        "department",
-        "user_link",
+        "status_name",
+        "scale",
+        "department_name",
+        "user_name",
         "quarter",
-        "change_time_estimate",
-        "correct_time_estimate",
-        "vtk_time_estimate",
+        "editing_time_estimate",
+        "correcting_time_estimate",
+        "tc_time_estimate",
         "category",
+        "year",
         "done",
     )
     list_filter = ("department", "status", "user", "quarter", "done")
@@ -129,17 +167,9 @@ class TaskAdmin(admin.ModelAdmin):
     class Meta:
         model = Task
 
-    def user_link(self, obj):
-        if obj.user:
-            url = reverse("admin:api_user_change", args=[obj.user.id])
-            link = f'<a href="{url}">{obj.user}</a>'
-            return mark_safe(link)
 
-    user_link.short_description = "Виконавець"
-
-
-class TimeTrackerAdmin(admin.ModelAdmin):
-    list_display = ("task", "status", "user_link", "start_time", "end_time", "hours", "task_status")
+class TimeTrackerAdmin(admin.ModelAdmin, AdditionForeignField):
+    list_display = ("task_name", "status", "user_link", "start_time", "end_time", "hours", "task_status_name", "task_department")
     list_filter = ("task", "user", "status", "task_status")
     search_fields = ("task", "user", "status")
     ordering = ("status", "task", "user", "task_status")
@@ -155,7 +185,7 @@ class TimeTrackerAdmin(admin.ModelAdmin):
     user_link.short_description = "Виконавець"
 
 
-class CommentAdmin(admin.ModelAdmin):
+class CommentAdmin(admin.ModelAdmin, AdditionForeignField):
     list_display = ('body', 'task', 'user', 'created')
     list_filter = ('task', 'user', 'created')
     search_fields = ('body',)

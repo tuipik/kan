@@ -3,7 +3,7 @@ from django.core.exceptions import BadRequest
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_standardized_errors.handler import exception_handler
 from rest_framework import status as http_status
-from rest_framework.exceptions import ValidationError
+from rest_framework.filters import OrderingFilter
 from rest_framework.permissions import (
     IsAuthenticated,
     IsAdminUser,
@@ -39,7 +39,7 @@ from .models import (
     BaseStatuses,
     TaskScales,
     YearQuarter,
-    TimeTrackerStatuses,
+    TimeTrackerStatuses, UserRoles,
 )
 from .serializers import (
     UserCreateSerializer,
@@ -255,40 +255,23 @@ class DepartmentApiViewSet(PermissionPolicyMixin, ResponseModelViewSet):
 class TaskViewSet(ResponseModelViewSet):
     queryset = Task.objects.all()
     authentication_classes = [JWTAuthentication]
-    permission_classes = [
-        IsAuthenticated,
-        # IsAdminUser
-    ]
+    permission_classes = [IsAuthenticated]
     serializer_classes = {}
     default_serializer_class = TaskSerializer
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = TaskFilter
+    ordering_fields = '__all__'
 
     def create(self, request, *args, **kwargs):
-        if (dep := request.data.get("department")) and not request.data.get(
-            "primary_department"
-        ):
-            request.data.update({"primary_department": dep})
-
         request.data.update(
-            {"status": Status.objects.get_or_none(name=BaseStatuses.WAITING.name).id}
+            {"status": Status.objects.get_or_none(name=BaseStatuses.EDITING_QUEUE.value).id}
         )
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
-        if not self.request.user.is_admin and request.data.get("department"):
-            request.data.pop("department")
-
         if stat_id := request.data.get("status"):
-            self.request.user.can_change_task_status_to_progress(stat_id)
-            department = Department.objects.filter(statuses=stat_id)
-            if department.count() == 1 and department[0].is_verifier:
-                request.data.update({"department": department[0].id})
-                if not request.data.get("user"):
-                    request.data.update({"user": None})
-            else:
-                instance = self.get_object()
-                request.data.update({"department": instance.primary_department_id})
+            self.request.user.can_change_task_status(stat_id)
+
         return super().update(request, *args, **kwargs)
 
     def get_permissions(self):
@@ -303,23 +286,23 @@ class TaskViewSet(ResponseModelViewSet):
             permission_classes = [IsAuthenticated, IsAdminUser]
         return [permission() for permission in permission_classes]
 
-    def get_queryset(self, *args, **kwargs):
-        current_user = self.request.user
-        order = self.request.query_params.get("order", "id")
-        task_fields_order = []
-        for field in Task.get_field_names():
-            task_fields_order.append(field)
-            task_fields_order.append(f"-{field}")
-
-        if order not in task_fields_order:
-            order = "id"
-
-        if current_user.is_admin or current_user.department.is_verifier:
-            return Task.objects.all().order_by(order)
-        else:
-            return Task.objects.filter(
-                primary_department_id=current_user.department.id
-            ).order_by(order)
+    # def get_queryset(self, *args, **kwargs):
+    #     current_user = self.request.user
+    #     order = self.request.query_params.get("order", "id")
+    #     task_fields_order = []
+    #     for field in Task.get_field_names():
+    #         task_fields_order.append(field)
+    #         task_fields_order.append(f"-{field}")
+    #
+    #     if order not in task_fields_order:
+    #         order = "id"
+    #
+    #     if current_user.is_admin or current_user.department.is_verifier:
+    #         return Task.objects.all().order_by(order)
+    #     else:
+    #         return Task.objects.filter(
+    #             primary_department_id=current_user.department.id
+    #         ).order_by(order)
 
 
 class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
@@ -400,6 +383,7 @@ class DefaultsView(APIView):
                 year.get("year")
                 for year in Task.objects.values("year").distinct().order_by("-year")
             ],
+            "USER_ROLES": {role.value: role.label for role in UserRoles},
         }
         return Response(
             ResponseInfo(

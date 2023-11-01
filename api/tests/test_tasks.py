@@ -14,16 +14,16 @@ def test_task_name_correct(api_client, super_user):
     fill_up_statuses()
     api_client.force_authenticate(super_user)
 
-    statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
+    statuses = Status.objects.filter(name__in=[BaseStatuses.EDITING_QUEUE.value, BaseStatuses.EDITING.value])
     department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
     department = api_client.post(reverse("department-list"), data=department_data)
     department_id = department.data.get("data")[0].get("id")
     task_data = {
         "name": "M-37-103-А-а",
         "scale": 25,
-        "change_time_estimate": 50,
-        "correct_time_estimate": 25,
-        "vtk_time_estimate": 15,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
         "quarter": 1,
         "category": 3,
         "user": None,
@@ -41,7 +41,7 @@ def test_task_name_incorrect(api_client, super_user):
     fill_up_statuses()
     api_client.force_authenticate(super_user)
 
-    statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
+    statuses = Status.objects.filter(name__in=[BaseStatuses.EDITING_QUEUE.value, BaseStatuses.EDITING.value])
     department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
     department = api_client.post(reverse("department-list"), data=department_data)
     department_id = department.data.get("data")[0].get("id")
@@ -49,9 +49,9 @@ def test_task_name_incorrect(api_client, super_user):
     task_data = {
         "name": "М-37-103-А-а",
         "scale": 25,
-        "change_time_estimate": 50,
-        "correct_time_estimate": 25,
-        "vtk_time_estimate": 15,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
         "quarter": 1,
         "category": 3,
         "user": None,
@@ -113,7 +113,7 @@ def test_CRUD_tasks_ok(api_client, super_user):
     fill_up_statuses()
     api_client.force_authenticate(super_user)
 
-    statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
+    statuses = Status.objects.filter(name__in=[BaseStatuses.EDITING_QUEUE.value, BaseStatuses.EDITING.value])
     department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
     department = api_client.post(reverse("department-list"), data=department_data)
     assert department.data.get("success")
@@ -128,9 +128,9 @@ def test_CRUD_tasks_ok(api_client, super_user):
     task_data = {
         "name": "M-37-103-А",
         "scale": 50,
-        "change_time_estimate": 50,
-        "correct_time_estimate": 25,
-        "vtk_time_estimate": 15,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
         "quarter": 1,
         "category": 3,
         "user": user.data.get("data")[0].get("id"),
@@ -155,7 +155,7 @@ def test_CRUD_tasks_ok(api_client, super_user):
     task_obj_id = all_tasks.data.get("data")[0].get("id")
     task_data["name"] = "M-36-80-А"
     task_data["primary_department"] = task_data["department"]
-    task_data["status"] = Status.objects.get(name=BaseStatuses.IN_PROGRESS.name).id
+    task_data["status"] = Status.objects.get(name=BaseStatuses.EDITING.value).id
 
     result = api_client.put(
         reverse("task-detail", kwargs={"pk": task_obj_id}),
@@ -206,9 +206,9 @@ def test_user_already_has_task_in_progress(api_client, super_user, freezer):
     task_data = {
         "name": "M-32-44-Г",
         "scale": 50,
-        "change_time_estimate": 50,
-        "correct_time_estimate": 25,
-        "vtk_time_estimate": 15,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
         "quarter": 1,
         "category": 3,
         "user": None,
@@ -218,14 +218,14 @@ def test_user_already_has_task_in_progress(api_client, super_user, freezer):
     task_1 = api_client.post(reverse("task-list"), data=task_data, format="json")
     task_1_in_progress = api_client.patch(
         reverse("task-detail", kwargs={"pk": task_1.data.get("data")[0].get("id")}),
-        data={"user": user_executant.id, "status": Status.objects.get_or_none(name="IN_PROGRESS").id},
+        data={"user": user_executant.id, "status": Status.objects.get_or_none(name="EDITING").id},
         format="json",
     )
     task_data["name"] = "M-32-44-Б"
     task_2 = api_client.post(reverse("task-list"), data=task_data, format="json")
     task_2_in_progress = api_client.patch(
         reverse("task-detail", kwargs={"pk": task_2.data.get("data")[0].get("id")}),
-        data={"user": user_executant.id, "status": Status.objects.get_or_none(name="IN_PROGRESS").id},
+        data={"user": user_executant.id, "status": Status.objects.get_or_none(name="EDITING").id},
         format="json",
     )
     assert not task_2_in_progress.data.get("success")
@@ -244,24 +244,24 @@ def test_create_time_tracker_on_change_task_in_progress(
     task = create_task(user=user, department=department)
     a1 = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"user": user.id, "status": Status.objects.get_or_none(name="IN_PROGRESS").id}, format="json"
+        data={"user": user.id, "status": Status.objects.get_or_none(name="EDITING").id}, format="json"
     )
-    # the second run update with status IN_PROGRESS is to test, that only 1 TimeTracker can be IN_PROGRESS at one time
+    # the second run update with status EDITING is to test, that only 1 TimeTracker can be IN_PROGRESS at one time
     # and should change status to idle first
     a2 = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"user": user.id, "status": Status.objects.get_or_none(name="IN_PROGRESS").id}, format="json"
+        data={"user": user.id, "status": Status.objects.get_or_none(name="EDITING").id}, format="json"
     )
 
     time_trackers = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS)
     assert time_trackers.count() == 1
     assert time_trackers[0].task.id == task.id
     assert time_trackers[0].user.id == user.id
-    assert time_trackers[0].status == TimeTrackerStatuses.IN_PROGRESS.name
+    assert time_trackers[0].status == TimeTrackerStatuses.IN_PROGRESS.value
 
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get_or_none(name="WAITING").id}, format="json"
+        data={"status": Status.objects.get_or_none(name="EDITING_QUEUE").id}, format="json"
     )
 
 
@@ -276,10 +276,10 @@ def test_change_status_less_4_hours(api_client, super_user, freezer):
 
     api_client.force_authenticate(super_user)
 
-    # task IN_PROGRESS creates time_tracker
+    # task EDITING creates time_tracker
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get_or_none(name="IN_PROGRESS").id}, format="json"
+        data={"status": Status.objects.get_or_none(name="EDITING").id}, format="json"
     )
 
     hours_passed = 3
@@ -308,10 +308,10 @@ def test_change_status_more_4_hours(api_client, super_user, freezer):
 
     api_client.force_authenticate(super_user)
 
-    # task IN_PROGRESS creates time_tracker
+    # task EDITING creates time_tracker
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get_or_none(name="IN_PROGRESS").id}, format="json"
+        data={"status": Status.objects.get_or_none(name="EDITING").id}, format="json"
     )
 
     hours_passed = 5
@@ -340,10 +340,10 @@ def test_change_status_more_8_hours(api_client, super_user, freezer):
 
     api_client.force_authenticate(super_user)
 
-    # task IN_PROGRESS creates time_tracker
+    # task EDITING creates time_tracker
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get_or_none(name="IN_PROGRESS").id}, format="json"
+        data={"status": Status.objects.get_or_none(name="EDITING").id}, format="json"
     )
 
     hours_passed = 10
@@ -375,9 +375,9 @@ def test_check_user_is_department_member_of_task_department(api_client, super_us
     task_data = {
         "name": "M-37-103-А",
         "scale": 50,
-        "change_time_estimate": 50,
-        "correct_time_estimate": 25,
-        "vtk_time_estimate": 15,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
         "quarter": 1,
         "category": 3,
         "user": None,
@@ -418,8 +418,8 @@ def test_updating_task_status(api_client, super_user):
 
     # Add Statuses for departments
 
-    statuses_for_custom_deps = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
-    statuses_for_correcting_deps = Status.objects.filter(name__in=[BaseStatuses.CORRECTING_QUEUE.name, BaseStatuses.CORRECTING.name])
+    statuses_for_custom_deps = Status.objects.filter(name__in=[BaseStatuses.EDITING_QUEUE.value, BaseStatuses.EDITING.value])
+    statuses_for_correcting_deps = Status.objects.filter(name__in=[BaseStatuses.CORRECTING_QUEUE.value, BaseStatuses.CORRECTING.value])
 
     result = api_client.patch(
         reverse("department-detail", kwargs={"pk": dep_1.id}),
@@ -452,9 +452,9 @@ def test_updating_task_status(api_client, super_user):
     task_data = {
         "name": "M-37-103-А",
         "scale": 50,
-        "change_time_estimate": 50,
-        "correct_time_estimate": 25,
-        "vtk_time_estimate": 15,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
         "quarter": 1,
         "category": 3,
         "user": user_1.id,
@@ -469,7 +469,7 @@ def test_updating_task_status(api_client, super_user):
     api_client.force_authenticate(user_1)
 
     # Changing task status inside department (from Waiting to In_Progress) -> department == primary_department
-    new_task_status = Status.objects.get_or_none(name="IN_PROGRESS").id
+    new_task_status = Status.objects.get_or_none(name="EDITING").id
     result = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
         data={"status": new_task_status},

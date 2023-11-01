@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand
 
-from api.models import Status, BaseStatuses
 from api.utils import fill_up_statuses
 
 
