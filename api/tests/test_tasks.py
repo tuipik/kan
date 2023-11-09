@@ -11,7 +11,7 @@ from kanban.settings import workday_time, launch_time
 
 @pytest.mark.django_db
 def test_task_name_correct(api_client, super_user):
-    fill_up_statuses()
+
     api_client.force_authenticate(super_user)
 
     statuses = Status.objects.filter(name__in=[Statuses.EDITING_QUEUE.value, Statuses.EDITING.value])
@@ -38,7 +38,7 @@ def test_task_name_correct(api_client, super_user):
 
 @pytest.mark.django_db
 def test_task_name_incorrect(api_client, super_user):
-    fill_up_statuses()
+    
     api_client.force_authenticate(super_user)
 
     statuses = Status.objects.filter(name__in=[Statuses.EDITING_QUEUE.value, Statuses.EDITING.value])
@@ -110,7 +110,7 @@ def test_task_name_incorrect(api_client, super_user):
 
 @pytest.mark.django_db
 def test_CRUD_tasks_ok(api_client, super_user):
-    fill_up_statuses()
+    
     api_client.force_authenticate(super_user)
 
     statuses = Status.objects.filter(name__in=[Statuses.EDITING_QUEUE.value, Statuses.EDITING.value])
@@ -198,7 +198,7 @@ def test_CRUD_tasks_ok(api_client, super_user):
 
 @pytest.mark.django_db
 def test_user_already_has_task_in_progress(api_client, super_user, freezer):
-    fill_up_statuses()
+    
 
     api_client.force_authenticate(super_user)
     user_data = default_user_data(3)
@@ -236,7 +236,7 @@ def test_user_already_has_task_in_progress(api_client, super_user, freezer):
 def test_create_time_tracker_on_change_task_in_progress(
     api_client, super_user, freezer
 ):
-    fill_up_statuses()
+    
 
     api_client.force_authenticate(super_user)
     user_data = default_user_data(1)
@@ -268,7 +268,7 @@ def test_create_time_tracker_on_change_task_in_progress(
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 09:00:00")
 def test_change_status_less_4_hours(api_client, super_user, freezer):
-    fill_up_statuses()
+    
 
     user_data = default_user_data(1)
     user, department = create_user_with_department(next(user_data))
@@ -300,7 +300,7 @@ def test_change_status_less_4_hours(api_client, super_user, freezer):
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 09:00:00")
 def test_change_status_more_4_hours(api_client, super_user, freezer):
-    fill_up_statuses()
+    
 
     user_data = default_user_data(1)
     user, department = create_user_with_department(next(user_data))
@@ -332,7 +332,7 @@ def test_change_status_more_4_hours(api_client, super_user, freezer):
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 09:00:00")
 def test_change_status_more_8_hours(api_client, super_user, freezer):
-    fill_up_statuses()
+    
 
     user_data = default_user_data(1)
     user, department = create_user_with_department(next(user_data))
@@ -362,7 +362,7 @@ def test_change_status_more_8_hours(api_client, super_user, freezer):
 
 @pytest.mark.django_db
 def test_check_user_is_department_member_of_task_department(api_client, super_user):
-    fill_up_statuses()
+    
     default_user_num = 2
     api_client.force_authenticate(super_user)
 
@@ -406,7 +406,7 @@ def test_check_user_is_department_member_of_task_department(api_client, super_us
 
 @pytest.mark.django_db
 def test_updating_task_status(api_client, super_user):
-    fill_up_statuses()
+    
     api_client.force_authenticate(super_user)
     default_user_num = 3
 

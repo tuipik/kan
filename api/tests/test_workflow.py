@@ -3,8 +3,8 @@ import pytest
 
 from rest_framework.reverse import reverse
 
-from api.models import TimeTrackerStatuses, Status
-from api.utils import update_time_trackers_hours, fill_up_statuses
+from api.models import TimeTrackerStatuses, Statuses
+from api.utils import update_time_trackers_hours
 from conftest import create_user_with_department, create_task, default_user_data
 from kanban.settings import launch_time
 
@@ -12,7 +12,7 @@ from kanban.settings import launch_time
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 09:00:00")
 def test_workflow_ok(api_client, super_user, freezer):
-    fill_up_statuses()
+
     """
     Create task -> task waiting -> task in_progress user1 -> task in correct queue without user ->
     -> task in correcting user2 -> task in otk queue without user -> otk user3 -> DONE
@@ -29,7 +29,7 @@ def test_workflow_ok(api_client, super_user, freezer):
     # task in_progress user1 ->
     task_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"user": user_executant.id, "status": Status.objects.get_or_none(name="EDITING").id}, format="json"
+        data={"user": user_executant.id, "status": Statuses.EDITING.value}, format="json"
     )
     time_trackers = api_client.get(
         f'{reverse("time_tracker-list")}?status={TimeTrackerStatuses.IN_PROGRESS}'
@@ -164,7 +164,7 @@ def test_workflow_ok(api_client, super_user, freezer):
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 09:00:00")
 def test_aggregate_status_time_done(api_client, super_user, freezer):
-    fill_up_statuses()
+    
     user_data = default_user_data(3)
     user_executant_1, department = create_user_with_department(next(user_data))
     user_executant_2, department = create_user_with_department(next(user_data))

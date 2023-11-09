@@ -11,7 +11,7 @@ from kanban.tasks import update_task_time_in_progress
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 09:00:00")
 def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
-    fill_up_statuses()
+    
 
     api_client.force_authenticate(super_user)
 
@@ -138,7 +138,7 @@ def test_CRUD_time_tracker_ok(api_client, super_user, freezer):
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 10:00:00")
 def test_update_start_time_lt_fake_time(api_client, super_user, freezer):
-    fill_up_statuses()
+    
 
     api_client.force_authenticate(super_user)
 
@@ -227,7 +227,7 @@ def test_update_start_time_lt_fake_time(api_client, super_user, freezer):
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 10:00:00")
 def test_handle_start_time_not_gt_time_now(api_client, super_user, freezer):
-    fill_up_statuses()
+    
 
     api_client.force_authenticate(super_user)
 
@@ -352,7 +352,7 @@ def test_handle_start_time_not_gt_time_now(api_client, super_user, freezer):
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 10:00:00")
 def test_tt_end_time_not_gt_next_tt_end_time(api_client, super_user, freezer):
-    fill_up_statuses()
+    
 
     api_client.force_authenticate(super_user)
 
@@ -453,7 +453,7 @@ def test_tt_end_time_not_gt_next_tt_end_time(api_client, super_user, freezer):
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 10:00:00")
 def test_handle_update_inside_success(api_client, super_user, freezer):
-    fill_up_statuses()
+    
 
     api_client.force_authenticate(super_user)
 
@@ -555,7 +555,7 @@ def test_handle_update_inside_success(api_client, super_user, freezer):
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 10:00:00")
 def test_handle_update_outside_success(api_client, super_user, freezer):
-    fill_up_statuses()
+    
 
     api_client.force_authenticate(super_user)
 
@@ -654,7 +654,7 @@ def test_handle_update_outside_success(api_client, super_user, freezer):
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 10:00:00")
 def test_update_time_trackers_hours(api_client, super_user, freezer):
-    fill_up_statuses()
+    
 
     api_client.force_authenticate(super_user)
 

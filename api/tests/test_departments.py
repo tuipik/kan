@@ -7,7 +7,7 @@ from api.utils import fill_up_statuses
 
 @pytest.mark.django_db
 def test_CRUD_departments_ok(api_client, super_user):
-    fill_up_statuses()
+    
 
     api_client.force_authenticate(super_user)
 
@@ -66,7 +66,7 @@ def test_CRUD_departments_ok(api_client, super_user):
 
 @pytest.mark.django_db
 def test_add_department_head(api_client, super_user):
-    fill_up_statuses()
+    
 
     api_client.force_authenticate(super_user)
 
