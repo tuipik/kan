@@ -6,7 +6,7 @@ from django.contrib.auth.models import (
     AbstractBaseUser,
     PermissionsMixin,
 )
-from django.db.models import Sum
+from django.db.models import Sum, F
 from rest_framework.exceptions import ValidationError
 
 from api.CONSTANTS import TASK_NAME_REGEX, TASK_NAME_RULES
@@ -141,11 +141,42 @@ class User(AbstractBaseUser, UpdatedModel, PermissionsMixin):
     def is_superuser(self):
         return self.is_admin
 
-    def can_change_task_status(self, status_id):
+    def can_be_set_as_task_user(self, status):
+        if status in [
+            Statuses.EDITING_QUEUE.value,
+            Statuses.EDITING.value,
+        ] and self.role not in [UserRoles.EDITOR.value, UserRoles.CORRECTOR.value]:
+            raise ValidationError(
+                {
+                    "status": f"Для статусу '{Statuses[status].label}' не можна призначити користувача, роль якого '{UserRoles[self.role].label}'."
+                }
+            )
+
+        if status in [
+            Statuses.CORRECTING_QUEUE.value,
+            Statuses.CORRECTING.value,
+        ] and self.role != UserRoles.CORRECTOR.value:
+            raise ValidationError(
+                {
+                    "status": f"Для статусу '{Statuses[status].label}' можна призначити тільки користувача роль, якого '{UserRoles.CORRECTOR.label}'."
+                }
+            )
+
+        if status in [
+            Statuses.TC_QUEUE.value,
+            Statuses.TC.value,
+        ] and self.role != UserRoles.VERIFIER.value:
+            raise ValidationError(
+                {
+                    "status": f"Для статусу '{Statuses[status].label}' можна призначити тільки користувача роль, якого '{UserRoles.VERIFIER.label}'."
+                }
+            )
+
+    def can_change_task_status(self, status):
         if (
             not self.is_admin
             and self.role == UserRoles.EDITOR.value
-            and status_id not in Status.EDITORS_STATUSES()
+            and status not in Statuses.EDITORS_STATUSES()
         ):
             raise ValidationError(
                 {
@@ -156,7 +187,7 @@ class User(AbstractBaseUser, UpdatedModel, PermissionsMixin):
         if (
             not self.is_admin
             and self.role == UserRoles.CORRECTOR.value
-            and status_id not in Status.CORRECTORS_STATUSES()
+            and status not in Statuses.CORRECTORS_STATUSES()
         ):
             raise ValidationError(
                 {
@@ -167,91 +198,13 @@ class User(AbstractBaseUser, UpdatedModel, PermissionsMixin):
         if (
             not self.is_admin
             and self.role == UserRoles.VERIFIER.value
-            and status_id not in Status.VERIFIERS_STATUSES()
+            and status not in Statuses.VERIFIERS_STATUSES()
         ):
             raise ValidationError(
                 {
                     "status": "Контролер не може змінити статус задачі на 'Редагування' та 'Коректування'."
                 }
             )
-
-
-class Status(UpdatedModel):
-    name = models.CharField(max_length=255, unique=True, verbose_name="Статус")
-    translation = models.CharField(max_length=255, unique=True, verbose_name="Переклад")
-
-    @classmethod
-    def STATUSES_PROGRESS_IDS(cls) -> list:
-        return [
-            stat.id
-            for stat in cls.objects.filter(
-                name__in=[
-                    BaseStatuses.EDITING.value,
-                    BaseStatuses.CORRECTING.value,
-                    BaseStatuses.TC.value,
-                ]
-            )
-        ]
-
-    @classmethod
-    def STATUSES_IDLE_IDS(cls) -> list:
-        return [
-            stat.id
-            for stat in cls.objects.filter(
-                name__in=[
-                    BaseStatuses.EDITING_QUEUE.value,
-                    BaseStatuses.CORRECTING_QUEUE.value,
-                    BaseStatuses.TC_QUEUE.value,
-                ]
-            )
-        ]
-
-    @classmethod
-    def STATUS_DONE_ID(cls) -> int:
-        return cls.objects.get_or_none(name=BaseStatuses.DONE.value).id
-
-    @classmethod
-    def EDITORS_STATUSES(cls) -> list:
-        return [
-            stat.id
-            for stat in cls.objects.filter(
-                name__in=[
-                    BaseStatuses.EDITING_QUEUE.value,
-                    BaseStatuses.EDITING.value,
-                    BaseStatuses.CORRECTING_QUEUE.value,
-                ]
-            )
-        ]
-
-    @classmethod
-    def CORRECTORS_STATUSES(cls) -> list:
-        return [
-            stat.id
-            for stat in cls.objects.filter(
-                name__in=[
-                    BaseStatuses.EDITING_QUEUE.value,
-                    BaseStatuses.EDITING.value,
-                    BaseStatuses.CORRECTING_QUEUE.value,
-                    BaseStatuses.CORRECTING.value,
-                    BaseStatuses.TC_QUEUE.value,
-                ]
-            )
-        ]
-
-    @classmethod
-    def VERIFIERS_STATUSES(cls) -> list:
-        return [
-            stat.id
-            for stat in cls.objects.filter(
-                name__in=[
-                    BaseStatuses.EDITING_QUEUE.value,
-                    BaseStatuses.CORRECTING_QUEUE.value,
-                    BaseStatuses.TC_QUEUE.value,
-                    BaseStatuses.TC.value,
-                    BaseStatuses.DONE.value,
-                ]
-            )
-        ]
 
 
 class Department(UpdatedModel):
@@ -288,7 +241,7 @@ class TaskScales(models.IntegerChoices):
     FIVE_HUNDRED = 500, "1:500 000"
 
 
-class BaseStatuses(models.TextChoices):
+class Statuses(models.TextChoices):
     EDITING_QUEUE = "EDITING_QUEUE", "Черга редагування"
     EDITING = "EDITING", "Редагування"
     CORRECTING_QUEUE = "CORRECTING_QUEUE", "Черга коректування"
@@ -296,6 +249,46 @@ class BaseStatuses(models.TextChoices):
     TC_QUEUE = "TC_QUEUE", "Черга технічного контролю"
     TC = "TC", "Технічний контроль"
     DONE = "DONE", "Завершено"
+
+    @classmethod
+    def STATUSES_PROGRESS(cls) -> list:
+        return [Statuses.EDITING.value, Statuses.CORRECTING.value, Statuses.TC.value]
+
+    @classmethod
+    def STATUSES_IDLE(cls) -> list:
+        return [
+            Statuses.EDITING_QUEUE.value,
+            Statuses.CORRECTING_QUEUE.value,
+            Statuses.TC_QUEUE.value,
+        ]
+
+    @classmethod
+    def EDITORS_STATUSES(cls) -> list:
+        return [
+            Statuses.EDITING_QUEUE.value,
+            Statuses.EDITING.value,
+            Statuses.CORRECTING_QUEUE.value,
+        ]
+
+    @classmethod
+    def CORRECTORS_STATUSES(cls) -> list:
+        return [
+            Statuses.EDITING_QUEUE.value,
+            Statuses.EDITING.value,
+            Statuses.CORRECTING_QUEUE.value,
+            Statuses.CORRECTING.value,
+            Statuses.TC_QUEUE.value,
+        ]
+
+    @classmethod
+    def VERIFIERS_STATUSES(cls) -> list:
+        return [
+            Statuses.EDITING_QUEUE.value,
+            Statuses.CORRECTING_QUEUE.value,
+            Statuses.TC_QUEUE.value,
+            Statuses.TC.value,
+            Statuses.DONE.value,
+        ]
 
 
 class Task(UpdatedModel):
@@ -309,15 +302,15 @@ class Task(UpdatedModel):
     tc_time_estimate = models.PositiveIntegerField(
         default=0, verbose_name="Час на технічний контроль"
     )
-    status = models.ForeignKey(
-        "Status",
-        on_delete=models.PROTECT,
-        related_name="tasks",
+    status = models.CharField(
+        max_length=64,
+        choices=Statuses.choices,
+        default=Statuses.EDITING_QUEUE.value,
         verbose_name="Статус",
     )
     scale = models.IntegerField(
         choices=TaskScales.choices,
-        default=TaskScales.FIFTY,
+        default=TaskScales.FIFTY.value,
         verbose_name="Масштаб",
     )
     category = RangeIntegerField(
@@ -335,11 +328,6 @@ class Task(UpdatedModel):
         blank=True,
         null=True,
     )
-    involved_users = models.ManyToManyField(
-        "User",
-        related_name="tasks_involved",
-        verbose_name="Задіяні користувачі",
-    )
     department = models.ForeignKey(
         "Department",
         on_delete=models.PROTECT,
@@ -353,40 +341,69 @@ class Task(UpdatedModel):
     def __str__(self):
         return self.name
 
-    def save(self, *args, **kwargs):
-        super(Task, self).save(*args, **kwargs)
-        if self.user:
-            self.involved_users.add(self.user)
-
     @property
     def editing_time_done(self):
         hours_sum = self.task_time_trackers.filter(
-            task_status=Status.objects.get_or_none(
-                name=BaseStatuses.EDITING.value
-            ).id
+            task_status=Statuses.EDITING.value
         ).aggregate(total_hours=Sum("hours"))
         return hours_sum.get("total_hours") or 0
 
     @property
     def correcting_time_done(self):
         hours_sum = self.task_time_trackers.filter(
-            task_status=Status.objects.get_or_none(name=BaseStatuses.CORRECTING.value).id
+            task_status=Statuses.CORRECTING.value
         ).aggregate(total_hours=Sum("hours"))
         return hours_sum.get("total_hours") or 0
 
     @property
     def tc_time_done(self):
         hours_sum = self.task_time_trackers.filter(
-            task_status=Status.objects.get_or_none(name=BaseStatuses.TC.value).id
+            task_status=Statuses.TC.value
         ).aggregate(total_hours=Sum("hours"))
         return hours_sum.get("total_hours") or 0
+
+    @property
+    def involved_users(self):
+        return User.objects.filter(user_time_trackers__task_id=self.id).distinct()
+
+    def update_user_in_queue_status(self, status):
+        time_trackers = None
+        is_queue_status = False
+
+        if status == Statuses.EDITING_QUEUE.value:
+            time_trackers = self.task_time_trackers.filter(
+                task_status=Statuses.EDITING.value
+            )
+            is_queue_status = True
+
+        elif status == Statuses.CORRECTING_QUEUE.value:
+            time_trackers = self.task_time_trackers.filter(
+                task_status=Statuses.CORRECTING.value
+            )
+            is_queue_status = True
+
+        elif status == Statuses.TC_QUEUE.value:
+            time_trackers = self.task_time_trackers.filter(
+                task_status=Statuses.TC.value
+            )
+            is_queue_status = True
+
+        if time_trackers and time_trackers.exists():
+            self.user = time_trackers.last().user
+            self.save()
+            return
+        if is_queue_status:
+            self.user = None
+            self.save()
+            return
 
     def start_time_tracker(self):
         data = {
             "task": self,
             "user": self.user,
-            "status": TimeTrackerStatuses.IN_PROGRESS,
+            "status": TimeTrackerStatuses.IN_PROGRESS.value,
             "task_status": self.status,
+            "task_department": self.department,
         }
         if not TimeTracker.objects.filter(**data).count():
             del data["status"]
@@ -460,16 +477,16 @@ class TimeTracker(UpdatedModel):
     )
     hours = models.IntegerField(verbose_name="Час виконання", default=0, blank=True)
     status = models.CharField(
-        max_length=50,
+        max_length=64,
         choices=TimeTrackerStatuses.choices,
-        default=TimeTrackerStatuses.IN_PROGRESS,
+        default=TimeTrackerStatuses.IN_PROGRESS.value,
         verbose_name="Статус",
     )
-    task_status = models.ForeignKey(
-        "Status",
-        on_delete=models.PROTECT,
-        related_name="time_trackers",
-        verbose_name="Статус задачі",
+    task_status = models.CharField(
+        max_length=64,
+        choices=Statuses.choices,
+        default=Statuses.EDITING_QUEUE.value,
+        verbose_name="Статус",
     )
     task_department = models.ForeignKey(
         "Department",
@@ -496,20 +513,22 @@ class TimeTracker(UpdatedModel):
             start_time=data.get("start_time"),
             end_time=data.get("end_time"),
             status=TimeTrackerStatuses.DONE,
-            task_status=Status.objects.get_or_none(name=BaseStatuses.EDITING_QUEUE.value),
+            task_status=Statuses.EDITING_QUEUE.value,
         )
 
     def handle_update_time(self, changed_time: str, is_start_time: bool):
         date_obj = datetime.fromisoformat(changed_time)
 
         previous_tracker = TimeTracker.objects.filter(
-            id__lt=self.id, task__id=self.task.id,
+            id__lt=self.id,
+            task__id=self.task.id,
         ).last()
         if not self.end_time:
             next_tracker = None
         else:
             next_tracker = TimeTracker.objects.filter(
-                id__gt=self.id, task__id=self.task.id,
+                id__gt=self.id,
+                task__id=self.task.id,
             ).first()
 
         if is_start_time and date_obj < self.start_time:

@@ -4,7 +4,7 @@ import pytest
 
 from rest_framework.test import APIClient
 
-from api.models import User, Department, Task, TimeTracker, Status
+from api.models import User, Department, Task, TimeTracker, Statuses
 
 
 @pytest.fixture(scope="function")
@@ -65,10 +65,9 @@ def create_user_with_department(
 def create_task(
     user: User = None, department: Department = None, name: str = "M-37-103-А"
 ) -> Task:
-    status = Status.objects.all()
     data = {
         "name": name,
-        "status": status[0],
+        "status": Statuses.EDITING_QUEUE.value,
         "editing_time_estimate": 50,
         "correcting_time_estimate": 25,
         "tc_time_estimate": 15,
@@ -82,7 +81,7 @@ def create_task(
     time_tracker_data = {
         "task": task,
         "user": user,
-        "task_status": status[0],
+        "task_status": Statuses.EDITING_QUEUE.value,
     }
     TimeTracker.objects.create(**time_tracker_data)
     return task

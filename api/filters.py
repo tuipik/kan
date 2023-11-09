@@ -45,7 +45,6 @@ class TaskFilter(django_filters.FilterSet):
             "user__first_name": ["exact", "contains", "icontains"],
             "user__last_name": ["exact", "contains", "icontains"],
             "user__role": ["exact", "in", "contains", "icontains"],
-            "involved_users": ["exact", "contains", "icontains"],
             "quarter": ["exact", "in"],
             "year": ["exact", "gt", "gte", "lt", "lte", "in"],
             "editing_time_estimate": ["exact", "gt", "gte", "lt", "lte"],

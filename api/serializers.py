@@ -11,14 +11,9 @@ from .models import (
     Comment,
     TimeTracker,
     TimeTrackerStatuses,
-    Status,
+    Statuses,
+    UserRoles,
 )
-
-
-class StatusSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Status
-        fields = ["id", "name", "translation"]
 
 
 class DepartmentCreateSerializer(serializers.ModelSerializer):
@@ -190,15 +185,11 @@ class TaskSerializer(serializers.ModelSerializer):
         queryset=User.objects.all(), allow_null=True, many=False, label="Відповідальний"
     )
     user_obj = UserBaseSerializer(source="user", read_only=True)
-    involved_users = serializers.ManyRelatedField(
-        child_relation=InvolvedUsersSerializer(source="user", read_only=True),
-        read_only=True,
-    )
+    involved_users = InvolvedUsersSerializer(many=True, read_only=True)
     department_obj = DepartmentSerializer(source="department", read_only=True)
     quarter_display_value = serializers.CharField(
         source="get_quarter_display", read_only=True
     )
-    status_obj = StatusSerializer(source="status", read_only=True)
     scale_display_value = serializers.CharField(
         source="get_scale_display", read_only=True
     )
@@ -224,7 +215,6 @@ class TaskSerializer(serializers.ModelSerializer):
             "tc_time_estimate",
             "tc_time_done",
             "status",
-            "status_obj",
             "scale",
             "scale_display_value",
             "quarter",
@@ -243,13 +233,12 @@ class TaskSerializer(serializers.ModelSerializer):
 
     def check_user_has_only_one_task_in_progress(self):
         status = self.validated_data.get("status")
-        if (
-            (user := self.validated_data.get("user"))
-            and status
-            and status.id in Status.STATUSES_PROGRESS_IDS()
-        ):
+        user = self.validated_data.get("user") or (
+            self.instance.user if self.instance else None
+        )
+        if user and status and status in Statuses.STATUSES_PROGRESS():
             tasks_in_progress = user.user_tasks.filter(
-                status__in=Status.STATUSES_PROGRESS_IDS()
+                status__in=Statuses.STATUSES_PROGRESS()
             )
             if tasks_in_progress.count() > 0 and any(
                 [task != self.instance for task in tasks_in_progress]
@@ -264,26 +253,34 @@ class TaskSerializer(serializers.ModelSerializer):
         stat = self.validated_data.get("status")
         if (
             stat
-            and (stat.id in Status.STATUSES_PROGRESS_IDS())
+            and (stat in Statuses.STATUSES_PROGRESS())
             and not self.validated_data.get("user")
         ):
             if not self.instance.user:
                 raise ValidationError(
                     {
-                        "user": f"Для переводу задачі в статус '{stat.name}' має бути вказаний виконавець"
+                        "user": f"Для переводу задачі в статус '{Statuses[stat].label}' має бути вказаний виконавець"
                     }
                 )
 
     def _check_user_is_department_member_of_task_department(self):
-        user = self.validated_data.get("user")
-        department = self.validated_data.get("department")
+        user = self.validated_data.get("user") or (
+            self.instance.user if self.instance else None
+        )
+        department = self.validated_data.get("department", None)
+        status = self.validated_data.get("status") or (
+            self.instance.status if self.instance else None
+        )
 
         if (
             department
             and self.instance
             and department.id != self.instance.department_id
-            and not self.context.get("request").user.is_admin
-            or self.context.get("request").user.id != self.instance.department.head.id
+            and (
+                not self.context.get("request").user.is_admin
+                or self.context.get("request").user.id
+                != self.instance.department.head.id
+            )
         ):
             raise ValidationError(
                 {
@@ -299,7 +296,19 @@ class TaskSerializer(serializers.ModelSerializer):
                 )
 
         if user and self.instance and not department:
-            if user.department_id != self.instance.department_id:
+            if user.department_id != self.instance.department_id and (
+                user.role not in [UserRoles.CORRECTOR.value, UserRoles.VERIFIER.value]
+                or (
+                    user.role == UserRoles.CORRECTOR.value
+                    and status
+                    not in [Statuses.CORRECTING_QUEUE.value, Statuses.CORRECTING.value]
+                )
+                or (
+                    user.role == UserRoles.VERIFIER.value
+                    and status
+                    not in [Statuses.TC_QUEUE.value, Statuses.TC.value]
+                )
+            ):
                 raise ValidationError(
                     {
                         "department": "Виконавцем можна призначити тільки користувача з відділу для якого створено задачу"
@@ -335,7 +344,7 @@ class TaskSerializer(serializers.ModelSerializer):
             change_list = []
             for key, value in self.validated_data.items():
                 if key == "status":
-                    text = Status.objects.get_or_none(id=value.id).translation
+                    text = value
                 elif key == "user" and value:
                     text = f"{value.last_name} {value.first_name}"
                 else:
@@ -363,10 +372,13 @@ class TaskSerializer(serializers.ModelSerializer):
             self.instance.create_log_comment(**comment_data)
             return self.instance
 
+        time_tracker = self.instance.task_time_trackers.get(
+            task__id=self.instance.id, status=TimeTrackerStatuses.IN_PROGRESS
+        )
         if validated_status := self.validated_data.get("status"):
             if (
-                self.instance.status.id == Status.STATUS_DONE_ID()
-                and validated_status.id != Status.STATUS_DONE_ID()
+                self.instance.status == Statuses.DONE.value
+                and validated_status != Statuses.DONE.value
                 and (
                     self.context.get("request").user.is_admin
                     or self.context.get("request").user.id
@@ -374,25 +386,36 @@ class TaskSerializer(serializers.ModelSerializer):
                 )
             ):
                 self.instance.done = None
+                if "user" not in self.validated_data:
+                    self.instance.update_user_in_queue_status(status=validated_status)
                 super().save()
                 self.instance.start_time_tracker()
                 self.instance.create_log_comment(**comment_data)
                 return self.instance
 
-            time_tracker = self.instance.task_time_trackers.get(
-                task__id=self.instance.id, status=TimeTrackerStatuses.IN_PROGRESS
-            )
-            if validated_status.id != time_tracker.task_status:
+            if validated_status != time_tracker.task_status:
                 self._check_user_for_progress_status()
                 time_tracker.change_status_done()
                 super().save()
-                if validated_status.id != Status.STATUS_DONE_ID():
+                if validated_status != Statuses.DONE.value:
+                    if "user" not in self.validated_data:
+                        self.instance.update_user_in_queue_status(
+                            status=validated_status
+                        )
                     self.instance.start_time_tracker()
                 else:
                     self.instance.done = datetime.now()
+                    self.instance.user = None
                     super().save()
                 self.instance.create_log_comment(**comment_data)
                 return self.instance
+        if validated_user := self.validated_data.get("user") and not validated_status:
+            self._check_user_for_progress_status()
+            time_tracker.change_status_done()
+            super().save()
+            self.instance.start_time_tracker()
+            self.instance.create_log_comment(**comment_data)
+            return self.instance
 
         super().save()
         self.instance.create_log_comment(**comment_data)

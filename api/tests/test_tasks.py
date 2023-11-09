@@ -3,7 +3,7 @@ import pytest
 from rest_framework.reverse import reverse
 
 from api.CONSTANTS import TASK_NAME_RULES
-from api.models import TimeTracker, TimeTrackerStatuses, Status, BaseStatuses
+from api.models import TimeTracker, TimeTrackerStatuses, Statuses
 from api.utils import fill_up_statuses
 from conftest import create_user_with_department, create_task, default_user_data
 from kanban.settings import workday_time, launch_time
@@ -14,7 +14,7 @@ def test_task_name_correct(api_client, super_user):
     fill_up_statuses()
     api_client.force_authenticate(super_user)
 
-    statuses = Status.objects.filter(name__in=[BaseStatuses.EDITING_QUEUE.value, BaseStatuses.EDITING.value])
+    statuses = Status.objects.filter(name__in=[Statuses.EDITING_QUEUE.value, Statuses.EDITING.value])
     department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
     department = api_client.post(reverse("department-list"), data=department_data)
     department_id = department.data.get("data")[0].get("id")
@@ -41,7 +41,7 @@ def test_task_name_incorrect(api_client, super_user):
     fill_up_statuses()
     api_client.force_authenticate(super_user)
 
-    statuses = Status.objects.filter(name__in=[BaseStatuses.EDITING_QUEUE.value, BaseStatuses.EDITING.value])
+    statuses = Status.objects.filter(name__in=[Statuses.EDITING_QUEUE.value, Statuses.EDITING.value])
     department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
     department = api_client.post(reverse("department-list"), data=department_data)
     department_id = department.data.get("data")[0].get("id")
@@ -113,7 +113,7 @@ def test_CRUD_tasks_ok(api_client, super_user):
     fill_up_statuses()
     api_client.force_authenticate(super_user)
 
-    statuses = Status.objects.filter(name__in=[BaseStatuses.EDITING_QUEUE.value, BaseStatuses.EDITING.value])
+    statuses = Status.objects.filter(name__in=[Statuses.EDITING_QUEUE.value, Statuses.EDITING.value])
     department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
     department = api_client.post(reverse("department-list"), data=department_data)
     assert department.data.get("success")
@@ -155,7 +155,7 @@ def test_CRUD_tasks_ok(api_client, super_user):
     task_obj_id = all_tasks.data.get("data")[0].get("id")
     task_data["name"] = "M-36-80-А"
     task_data["primary_department"] = task_data["department"]
-    task_data["status"] = Status.objects.get(name=BaseStatuses.EDITING.value).id
+    task_data["status"] = Status.objects.get(name=Statuses.EDITING.value).id
 
     result = api_client.put(
         reverse("task-detail", kwargs={"pk": task_obj_id}),
@@ -418,8 +418,8 @@ def test_updating_task_status(api_client, super_user):
 
     # Add Statuses for departments
 
-    statuses_for_custom_deps = Status.objects.filter(name__in=[BaseStatuses.EDITING_QUEUE.value, BaseStatuses.EDITING.value])
-    statuses_for_correcting_deps = Status.objects.filter(name__in=[BaseStatuses.CORRECTING_QUEUE.value, BaseStatuses.CORRECTING.value])
+    statuses_for_custom_deps = Status.objects.filter(name__in=[Statuses.EDITING_QUEUE.value, Statuses.EDITING.value])
+    statuses_for_correcting_deps = Status.objects.filter(name__in=[Statuses.CORRECTING_QUEUE.value, Statuses.CORRECTING.value])
 
     result = api_client.patch(
         reverse("department-detail", kwargs={"pk": dep_1.id}),

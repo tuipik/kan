@@ -4,22 +4,22 @@ from random import choice, randint
 from django.core.management.base import BaseCommand
 from faker import Faker
 
-from api.CONSTANTS import ROW_LATIN_LETTERS, CYRILLIC_LETTERS_UP
+from api.CONSTANTS import CYRILLIC_LETTERS_UP
 from api.models import (
-    Status,
-    BaseStatuses,
+    Statuses,
     User,
     Department,
     Task,
     TimeTracker,
-    Comment, UserRoles,
+    Comment,
+    UserRoles,
 )
 
 
 class Command(BaseCommand):
     """Django command to fill up develop db"""
 
-    fake = Faker('uk_UA')
+    fake = Faker("uk_UA")
 
     def create_user(self, dep, num, role):
         user = User.objects.create_user(
@@ -43,17 +43,18 @@ class Command(BaseCommand):
         ]
         user_counter = 1
         for dep in deps:
-
             department = Department.objects.create(name=dep[0], is_verifier=dep[1])
             department.save()
-            user_1 = self.create_user(department, user_counter, role=UserRoles.EDITOR.value)
+            user_1 = self.create_user(
+                department, user_counter, role=UserRoles.EDITOR.value
+            )
             user_counter += 1
             q = 4
             for i in range(q):
                 role = UserRoles.EDITOR.value
                 if dep[1]:
                     role = UserRoles.VERIFIER.value
-                if not dep[1] and i == q-1:
+                if not dep[1] and i == q - 1:
                     role = UserRoles.CORRECTOR.value
                 self.create_user(department, user_counter, role=role)
                 user_counter += 1
@@ -63,7 +64,6 @@ class Command(BaseCommand):
 
     def create_tasks(self):
         user_list = User.objects.filter(department__is_verifier=False)
-        status = Status.objects.get_or_none(name=BaseStatuses.EDITING_QUEUE.value)
         names = []
         for department in Department.objects.filter(is_verifier=False):
             for user in [
@@ -92,7 +92,7 @@ class Command(BaseCommand):
                             "user": user,
                             "department": department,
                             "year": datetime.today().year,
-                            "status": status,
+                            "status": Statuses.EDITING_QUEUE.value,
                             "scale": 50,
                         }
                     )
@@ -100,7 +100,11 @@ class Command(BaseCommand):
                     task.save()
 
                     TimeTracker.objects.create(
-                        task=task, user=User.objects.first(), task_status=status, task_department=task.department, start_time=task.created
+                        task=task,
+                        user=user,
+                        task_status=Statuses.EDITING_QUEUE.value,
+                        task_department=task.department,
+                        start_time=task.created,
                     )
                     Comment.objects.create(
                         task=task,
