@@ -141,7 +141,7 @@ class User(AbstractBaseUser, UpdatedModel, PermissionsMixin):
     def is_superuser(self):
         return self.is_admin
 
-    def can_be_set_as_task_user(self, status):
+    def can_be_set_as_task_user(self, status, request_user):
         if status in [
             Statuses.EDITING_QUEUE.value,
             Statuses.EDITING.value,
@@ -171,6 +171,13 @@ class User(AbstractBaseUser, UpdatedModel, PermissionsMixin):
                     "status": f"Для статусу '{Statuses[status].label}' можна призначити тільки користувача роль, якого '{UserRoles.VERIFIER.label}'."
                 }
             )
+        if not status and (not request_user.is_admin or request_user.is_head_department):
+            raise ValidationError(
+                {
+                    "user": f"Тільки Адміністратор або Керівник віддулу може змінювати виконавця задачі."
+                }
+            )
+
 
     def can_change_task_status(self, status):
         if (

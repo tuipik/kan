@@ -267,7 +267,7 @@ class TaskViewSet(ResponseModelViewSet):
 
         user_to_update = User.objects.get_or_none(id=request.data.get("user"))
         if user_to_update:
-            user_to_update.can_be_set_as_task_user(status)
+            user_to_update.can_be_set_as_task_user(status, request.user)
 
         return super().update(request, *args, **kwargs)
 

@@ -256,7 +256,7 @@ class TaskSerializer(serializers.ModelSerializer):
             and (stat in Statuses.STATUSES_PROGRESS())
             and not self.validated_data.get("user")
         ):
-            if not self.instance.user:
+            if not self.instance.user or self.context.get('request').user != self.instance.user:
                 raise ValidationError(
                     {
                         "user": f"Для переводу задачі в статус '{Statuses[stat].label}' має бути вказаний виконавець"
@@ -301,7 +301,7 @@ class TaskSerializer(serializers.ModelSerializer):
                 or (
                     user.role == UserRoles.CORRECTOR.value
                     and status
-                    not in [Statuses.CORRECTING_QUEUE.value, Statuses.CORRECTING.value]
+                    not in [Statuses.EDITING_QUEUE.value, Statuses.CORRECTING_QUEUE.value, Statuses.CORRECTING.value]
                 )
                 or (
                     user.role == UserRoles.VERIFIER.value

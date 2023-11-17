@@ -23,7 +23,7 @@ def super_user() -> User:
     return User.objects.create_superuser(**data)
 
 
-def default_user_data(num) -> Generator[dict[str, str], Any, None]:
+def default_user_data(num, roles:list) -> Generator[dict[str, str], Any, None]:
     counter = 0
     while True:
         counter += 1
@@ -36,6 +36,7 @@ def default_user_data(num) -> Generator[dict[str, str], Any, None]:
             "password": "default_pass",
             "password2": "default_pass",
             "department": "",
+            "role": roles[counter-1]
         }
 
 
@@ -47,7 +48,6 @@ def create_default_user(user_data) -> User:
 
 def create_department(name="DEFAULT_DEP") -> [Department, bool]:
     dep, created = Department.objects.get_or_create(name=name)
-    dep.statuses.set([1, 2])
     dep.save()
     return dep
 
@@ -75,13 +75,13 @@ def create_task(
         "category": 3,
         "user": user,
         "department": department,
-        "primary_department": department,
     }
     task = Task.objects.create(**data)
     time_tracker_data = {
         "task": task,
         "user": user,
         "task_status": Statuses.EDITING_QUEUE.value,
+        "task_department": task.department,
     }
     TimeTracker.objects.create(**time_tracker_data)
     return task

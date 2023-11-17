@@ -2,7 +2,6 @@ import pytest
 from rest_framework.reverse import reverse
 
 from api.models import Statuses
-from api.utils import fill_up_statuses
 
 
 @pytest.mark.django_db
@@ -89,7 +88,7 @@ def test_add_department_head(api_client, super_user):
     assert updated_department.data.get("data")[0].get("head") == super_user.id
 
     new_department = api_client.post(
-        reverse("department-list"), data={"name": "new_test_department", "statuses": [statuses[0].id, statuses[1].id]}
+        reverse("department-list"), data={"name": "new_test_department"}
     )
     assert new_department.data.get("success")
     new_department_id = new_department.data.get("data")[0].get("id")

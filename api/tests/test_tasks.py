@@ -3,9 +3,8 @@ import pytest
 from rest_framework.reverse import reverse
 
 from api.CONSTANTS import TASK_NAME_RULES
-from api.models import TimeTracker, TimeTrackerStatuses, Statuses
-from api.utils import fill_up_statuses
-from conftest import create_user_with_department, create_task, default_user_data
+from api.models import TimeTracker, TimeTrackerStatuses, Statuses, UserRoles, Department
+from conftest import create_user_with_department, create_task, default_user_data, create_default_user
 from kanban.settings import workday_time, launch_time
 
 
@@ -14,8 +13,7 @@ def test_task_name_correct(api_client, super_user):
 
     api_client.force_authenticate(super_user)
 
-    statuses = Status.objects.filter(name__in=[Statuses.EDITING_QUEUE.value, Statuses.EDITING.value])
-    department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
+    department_data = {"name": "test_department"}
     department = api_client.post(reverse("department-list"), data=department_data)
     department_id = department.data.get("data")[0].get("id")
     task_data = {
@@ -41,8 +39,7 @@ def test_task_name_incorrect(api_client, super_user):
     
     api_client.force_authenticate(super_user)
 
-    statuses = Status.objects.filter(name__in=[Statuses.EDITING_QUEUE.value, Statuses.EDITING.value])
-    department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
+    department_data = {"name": "test_department"}
     department = api_client.post(reverse("department-list"), data=department_data)
     department_id = department.data.get("data")[0].get("id")
     # ROW_ERROR (1st letter cyrillic)
@@ -113,8 +110,7 @@ def test_CRUD_tasks_ok(api_client, super_user):
     
     api_client.force_authenticate(super_user)
 
-    statuses = Status.objects.filter(name__in=[Statuses.EDITING_QUEUE.value, Statuses.EDITING.value])
-    department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
+    department_data = {"name": "test_department"}
     department = api_client.post(reverse("department-list"), data=department_data)
     assert department.data.get("success")
 
@@ -135,7 +131,6 @@ def test_CRUD_tasks_ok(api_client, super_user):
         "category": 3,
         "user": user.data.get("data")[0].get("id"),
         "department": department_id,
-        "primary_department": department_id,
     }
 
     # test create
@@ -155,7 +150,7 @@ def test_CRUD_tasks_ok(api_client, super_user):
     task_obj_id = all_tasks.data.get("data")[0].get("id")
     task_data["name"] = "M-36-80-А"
     task_data["primary_department"] = task_data["department"]
-    task_data["status"] = Status.objects.get(name=Statuses.EDITING.value).id
+    task_data["status"] = Statuses.EDITING.value
 
     result = api_client.put(
         reverse("task-detail", kwargs={"pk": task_obj_id}),
@@ -201,7 +196,7 @@ def test_user_already_has_task_in_progress(api_client, super_user, freezer):
     
 
     api_client.force_authenticate(super_user)
-    user_data = default_user_data(3)
+    user_data = default_user_data(3, roles=[UserRoles.EDITOR.value])
     user_executant, department = create_user_with_department(next(user_data))
     task_data = {
         "name": "M-32-44-Г",
@@ -218,14 +213,14 @@ def test_user_already_has_task_in_progress(api_client, super_user, freezer):
     task_1 = api_client.post(reverse("task-list"), data=task_data, format="json")
     task_1_in_progress = api_client.patch(
         reverse("task-detail", kwargs={"pk": task_1.data.get("data")[0].get("id")}),
-        data={"user": user_executant.id, "status": Status.objects.get_or_none(name="EDITING").id},
+        data={"user": user_executant.id, "status": Statuses.EDITING.value},
         format="json",
     )
     task_data["name"] = "M-32-44-Б"
     task_2 = api_client.post(reverse("task-list"), data=task_data, format="json")
     task_2_in_progress = api_client.patch(
         reverse("task-detail", kwargs={"pk": task_2.data.get("data")[0].get("id")}),
-        data={"user": user_executant.id, "status": Status.objects.get_or_none(name="EDITING").id},
+        data={"user": user_executant.id, "status": Statuses.EDITING.value},
         format="json",
     )
     assert not task_2_in_progress.data.get("success")
@@ -236,21 +231,20 @@ def test_user_already_has_task_in_progress(api_client, super_user, freezer):
 def test_create_time_tracker_on_change_task_in_progress(
     api_client, super_user, freezer
 ):
-    
 
     api_client.force_authenticate(super_user)
-    user_data = default_user_data(1)
+    user_data = default_user_data(1, roles=[UserRoles.EDITOR.value])
     user, department = create_user_with_department(next(user_data))
     task = create_task(user=user, department=department)
     a1 = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"user": user.id, "status": Status.objects.get_or_none(name="EDITING").id}, format="json"
+        data={"user": user.id, "status": Statuses.EDITING.value}, format="json"
     )
     # the second run update with status EDITING is to test, that only 1 TimeTracker can be IN_PROGRESS at one time
     # and should change status to idle first
     a2 = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"user": user.id, "status": Status.objects.get_or_none(name="EDITING").id}, format="json"
+        data={"user": user.id, "status": Statuses.EDITING.value}, format="json"
     )
 
     time_trackers = TimeTracker.objects.filter(status=TimeTrackerStatuses.IN_PROGRESS)
@@ -261,7 +255,7 @@ def test_create_time_tracker_on_change_task_in_progress(
 
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get_or_none(name="EDITING_QUEUE").id}, format="json"
+        data={"status": Statuses.EDITING_QUEUE.value}, format="json"
     )
 
 
@@ -270,7 +264,7 @@ def test_create_time_tracker_on_change_task_in_progress(
 def test_change_status_less_4_hours(api_client, super_user, freezer):
     
 
-    user_data = default_user_data(1)
+    user_data = default_user_data(1, roles=[UserRoles.EDITOR.value])
     user, department = create_user_with_department(next(user_data))
     task = create_task(user=user, department=department)
 
@@ -279,7 +273,7 @@ def test_change_status_less_4_hours(api_client, super_user, freezer):
     # task EDITING creates time_tracker
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get_or_none(name="EDITING").id}, format="json"
+        data={"status": Statuses.EDITING.value, "user": user.id}, format="json"
     )
 
     hours_passed = 3
@@ -288,7 +282,7 @@ def test_change_status_less_4_hours(api_client, super_user, freezer):
     # task DONE updates time_tracker with status DONE
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get_or_none(name="DONE").id}, format="json"
+        data={"status": Statuses.DONE.value}, format="json"
     )
     time_trackers = api_client.get(reverse("time_tracker-list"))
 
@@ -302,7 +296,7 @@ def test_change_status_less_4_hours(api_client, super_user, freezer):
 def test_change_status_more_4_hours(api_client, super_user, freezer):
     
 
-    user_data = default_user_data(1)
+    user_data = default_user_data(1, roles=[UserRoles.EDITOR.value])
     user, department = create_user_with_department(next(user_data))
     task = create_task(user=user, department=department)
 
@@ -311,7 +305,7 @@ def test_change_status_more_4_hours(api_client, super_user, freezer):
     # task EDITING creates time_tracker
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get_or_none(name="EDITING").id}, format="json"
+        data={"status": Statuses.EDITING.value, "user": user.id}, format="json"
     )
 
     hours_passed = 5
@@ -320,7 +314,7 @@ def test_change_status_more_4_hours(api_client, super_user, freezer):
     # task DONE updates time_tracker with status DONE
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get_or_none(name="DONE").id}, format="json"
+        data={"status": Statuses.DONE.value}, format="json"
     )
     time_trackers = api_client.get(reverse("time_tracker-list"))
 
@@ -334,7 +328,7 @@ def test_change_status_more_4_hours(api_client, super_user, freezer):
 def test_change_status_more_8_hours(api_client, super_user, freezer):
     
 
-    user_data = default_user_data(1)
+    user_data = default_user_data(1, roles=[UserRoles.EDITOR.value])
     user, department = create_user_with_department(next(user_data))
     task = create_task(user=user, department=department)
 
@@ -343,7 +337,7 @@ def test_change_status_more_8_hours(api_client, super_user, freezer):
     # task EDITING creates time_tracker
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get_or_none(name="EDITING").id}, format="json"
+        data={"status": Statuses.EDITING.value, "user": user.id}, format="json"
     )
 
     hours_passed = 10
@@ -352,7 +346,7 @@ def test_change_status_more_8_hours(api_client, super_user, freezer):
     # task DONE updates time_tracker with status DONE
     api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"status": Status.objects.get_or_none(name="DONE").id}, format="json"
+        data={"status": Statuses.DONE.value}, format="json"
     )
     time_trackers = api_client.get(reverse("time_tracker-list"))
 
@@ -363,11 +357,10 @@ def test_change_status_more_8_hours(api_client, super_user, freezer):
 @pytest.mark.django_db
 def test_check_user_is_department_member_of_task_department(api_client, super_user):
     
-    default_user_num = 2
     api_client.force_authenticate(super_user)
 
     # create users with departments
-    users_data = default_user_data(default_user_num)
+    users_data = default_user_data(2, roles=[UserRoles.EDITOR.value, UserRoles.EDITOR.value])
     user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
     user_2, dep_2 = create_user_with_department(next(users_data), dep_name="Dep_2")
 
@@ -411,39 +404,30 @@ def test_updating_task_status(api_client, super_user):
     default_user_num = 3
 
     # create user with department
-    users_data = default_user_data(default_user_num)
+    users_data = default_user_data(default_user_num, roles=[UserRoles.EDITOR.value, UserRoles.EDITOR.value, UserRoles.EDITOR.value])
     user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
     user_2, dep_2 = create_user_with_department(next(users_data), dep_name="Dep_2")
     user_3, dep_3 = create_user_with_department(next(users_data), dep_name="Dep_3")
 
     # Add Statuses for departments
 
-    statuses_for_custom_deps = Status.objects.filter(name__in=[Statuses.EDITING_QUEUE.value, Statuses.EDITING.value])
-    statuses_for_correcting_deps = Status.objects.filter(name__in=[Statuses.CORRECTING_QUEUE.value, Statuses.CORRECTING.value])
-
     result = api_client.patch(
         reverse("department-detail", kwargs={"pk": dep_1.id}),
-        data={"is_verifier": True,
-              "statuses": [statuses_for_custom_deps[0].id,  statuses_for_custom_deps[1].id]
-              },
+        data={"is_verifier": True},
     )
 
     assert result.data.get("success")
 
     result = api_client.patch(
         reverse("department-detail", kwargs={"pk": dep_2.id}),
-        data={"is_verifier": True,
-              "statuses": [statuses_for_custom_deps[0].id,  statuses_for_custom_deps[1].id]
-              },
+        data={"is_verifier": True},
     )
 
     assert result.data.get("success")
 
     result = api_client.patch(
         reverse("department-detail", kwargs={"pk": dep_3.id}),
-        data={"is_verifier": True,
-              "statuses": [statuses_for_correcting_deps[0].id, statuses_for_correcting_deps[1].id]
-              },
+        data={"is_verifier": True},
     )
 
     assert result.data.get("success")
@@ -469,7 +453,7 @@ def test_updating_task_status(api_client, super_user):
     api_client.force_authenticate(user_1)
 
     # Changing task status inside department (from Waiting to In_Progress) -> department == primary_department
-    new_task_status = Status.objects.get_or_none(name="EDITING").id
+    new_task_status = Statuses.EDITING.value
     result = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
         data={"status": new_task_status},
@@ -479,26 +463,8 @@ def test_updating_task_status(api_client, super_user):
     assert result.data.get("success")
     assert result.data.get("department") == result.data.get("primary_department")
 
-    # result = api_client.patch(
-    #     reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
-    #     data={"department": dep_2.id, "user": None},
-    #     format="json",
-    # )
-    #
-    # assert result.data.get("success")
-    # assert not result.data.get("errors")
-
-    # Changing task status to CORRECTING by user from not-verifier department - Error
-    # result = api_client.patch(
-    #     reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
-    #     data={"user": user_3.id},
-    #     format="json",
-    # )
-    #
-    # assert result.data.get("success")
-
     # Changing status to Correcting by user from custom department -> user can't change to Correcting (only to Correcting_Queue)
-    new_task_status = Status.objects.get_or_none(name="CORRECTING").id
+    new_task_status = Statuses.CORRECTING.value
     result = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
         data={"status": new_task_status, "user": user_3.id},
@@ -507,4 +473,457 @@ def test_updating_task_status(api_client, super_user):
 
     assert not result.data.get("success")
     assert result.data.get("errors")[0].get("attr") == "status"
+
+
+@pytest.mark.django_db
+def test_changing_task_status_by_editor(api_client, super_user):
+
+    """
+    TestCase: Editor CAN'T change Task Status to Correcting (Error),
+    TC_QUEUE (Error), TC (Error).
+    Then: Editor CAN change Task Status to Editing, Correcting_Queue, Editing_queue
+    """
+
+    api_client.force_authenticate(super_user)
+
+    # create user with department
+    users_data = default_user_data(3,
+                                   roles=[UserRoles.EDITOR.value, UserRoles.EDITOR.value, UserRoles.EDITOR.value])
+    user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
+
+    # create task
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": 50,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
+        "quarter": 1,
+        "user": user_1.id,
+        "department": dep_1.id,
+    }
+    task = api_client.post(reverse("task-list"), data=task_data, format="json")
+
+    # Login by user_1
+    api_client.logout()
+    api_client.force_authenticate(user_1)
+
+    # (1) Change Task Status to Correcting by Editor (User_1) -> Error
+    new_task_status = Statuses.CORRECTING.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert not result.data.get("success")
+    assert result.data.get("errors")[0].get("attr") == "status"
+
+
+    # (2) Change Task Status to TC_QUEUE by Editor (User_1) -> Error
+    new_task_status = Statuses.TC_QUEUE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert not result.data.get("success")
+    assert result.data.get("errors")[0].get("attr") == "status"
+
+
+    # (3) Change Task Status to TC by Editor (User_1) -> Error
+    new_task_status = Statuses.TC.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert not result.data.get("success")
+    assert result.data.get("errors")[0].get("attr") == "status"
+
+
+    # (4) Change Task Status to Editing by Editor (User_1) -> OK
+    new_task_status = Statuses.EDITING.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+
+    # (5) Change Task Status to Correcting_Queue by Editor (User_1) -> OK
+    new_task_status = Statuses.CORRECTING_QUEUE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+
+
+    # (6) Change Task Status to Editing_Queue by Editor (User_1) -> OK
+    new_task_status = Statuses.EDITING_QUEUE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+
+
+@pytest.mark.django_db
+def test_changing_users_by_changing_task_status(api_client, super_user):
+
+    """
+    TestCase: When Task Status changing to ..._Queue - user changing to NULL.
+        BUT: if some user was involved in this task status - he will be automatically assigned to this task again.
+    """
+
+    api_client.force_authenticate(super_user)
+
+    # create user with department
+    users_data = default_user_data(2,
+                                   roles=[UserRoles.EDITOR.value, UserRoles.CORRECTOR.value])
+    user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
+    user_2, dep_2 = create_user_with_department(next(users_data), dep_name="Dep_2")
+
+    # create task
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": 50,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
+        "quarter": 1,
+        "user": user_1.id,
+        "department": dep_1.id,
+    }
+    task = api_client.post(reverse("task-list"), data=task_data, format="json")
+
+    # Login by user_1
+    api_client.logout()
+    api_client.force_authenticate(user_1)
+
+    # (1) Change Task Status to Editing by User_1 (Editor) -> OK
+    new_task_status = Statuses.EDITING.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+    assert result.data.get("data")[0]["status"] == "EDITING"
+    assert result.data.get("data")[0]["user"] == user_1.id
+
+
+    # (2) Change Task Status to Correcting_Queue by User_1 (Editor) -> OK
+    new_task_status = Statuses.CORRECTING_QUEUE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+    assert result.data.get("data")[0]["status"] == "CORRECTING_QUEUE"
+    assert result.data.get("data")[0]["user"] == None
+
+
+    # (3) Change Task Status to Correcting by User_2 (Corrector) -> OK
+
+    # Login by User_2
+    api_client.logout()
+    api_client.force_authenticate(user_2)
+
+    # Change Task Status to Correcting
+    new_task_status = Statuses.CORRECTING.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status, "user": user_2.id},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+    assert result.data.get("data")[0]["status"] == "CORRECTING"
+    assert result.data.get("data")[0]["user"] == user_2.id
+
+
+    # (4) Change Task Status to Editing_Queue by User_2 (Corrector) -> OK
+
+    # Change Task Status to Editing_Queue
+    new_task_status = Statuses.EDITING_QUEUE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+    assert result.data.get("data")[0]["status"] == "EDITING_QUEUE"
+    assert result.data.get("data")[0]["user"] == user_1.id
+
+
+@pytest.mark.django_db
+def test_changing_statuses_by_corrector(api_client, super_user):
+
+    """
+    TestCase: User (corrector) changes statuses to Editing, Correcting Queue, Correcting and TC Queue -> Success.
+    """
+
+    api_client.force_authenticate(super_user)
+
+    # create user with department
+    users_data = default_user_data(2,
+                                   roles=[UserRoles.EDITOR.value, UserRoles.CORRECTOR.value])
+    user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
+
+    user_corrector_data = {
+        "username": f"user_corrector",
+        "first_name": f"default_f_name",
+        "last_name": f"default_l_name",
+        "password": "default_pass",
+        "password2": "default_pass",
+        "department": "",
+        "role": UserRoles.CORRECTOR.value,
+    }
+    user_2 = create_default_user(user_corrector_data)
+    user_2.department = Department.objects.get(id=1)
+    user_2.save()
+
+    # create task
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": 50,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
+        "quarter": 1,
+        "user": user_1.id,
+        "department": dep_1.id,
+    }
+    task = api_client.post(reverse("task-list"), data=task_data, format="json")
+
+    # Login by user_2
+    api_client.logout()
+    api_client.force_authenticate(user_2)
+
+    # (1) Change Task Status to Editing by User_2 (corrector) -> OK
+    new_task_status = Statuses.EDITING.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status, "user": user_2.id},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+    assert result.data.get("data")[0]["status"] == "EDITING"
+    assert result.data.get("data")[0]["user"] == user_2.id
+
+    # (2) Change Task Status to CORRECTING_QUEUE by User_2 (corrector) -> OK
+    new_task_status = Statuses.CORRECTING_QUEUE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status, "user": user_2.id},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+    assert result.data.get("data")[0]["status"] == "CORRECTING_QUEUE"
+    assert result.data.get("data")[0]["user"] == user_2.id
+
+    # (3) Change Task Status to CORRECTING by User_2 (corrector) -> OK
+    new_task_status = Statuses.CORRECTING.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status, "user": user_2.id},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+    assert result.data.get("data")[0]["status"] == "CORRECTING"
+    assert result.data.get("data")[0]["user"] == user_2.id
+
+    # (4) Change Task Status to TC_QUEUE by User_2 (corrector) -> OK
+    new_task_status = Statuses.TC_QUEUE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+    assert result.data.get("data")[0]["status"] == "TC_QUEUE"
+    assert result.data.get("data")[0]["user"] == None
+
+@pytest.mark.django_db
+def test_changing_statuses_by_corrector_from_another_dep(api_client, super_user):
+    """
+    TestCase: User (corrector) from Dep_2 changes statuses to Editing when Task_department = 1 -> Error.
+    """
+
+    api_client.force_authenticate(super_user)
+
+    # create user with department
+    users_data = default_user_data(2,
+                                   roles=[UserRoles.EDITOR.value, UserRoles.CORRECTOR.value])
+    user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
+    user_2, dep_2 = create_user_with_department(next(users_data), dep_name="Dep_2")
+
+    # create task
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": 50,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
+        "quarter": 1,
+        "user": user_1.id,
+        "department": dep_1.id,
+    }
+    task = api_client.post(reverse("task-list"), data=task_data, format="json")
+
+    # Login by user_2
+    api_client.logout()
+    api_client.force_authenticate(user_2)
+
+    # (1) Change Task Status to Editing by User_2 (corrector) -> OK
+    new_task_status = Statuses.EDITING.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status, "user": user_2.id},
+        format="json",
+    )
+
+    assert not result.data.get("success")
+    assert result.data.get("errors")[0].get("attr") == "department"
+
+
+@pytest.mark.django_db
+def test_changing_statuses_by_verifier(api_client, super_user):
+
+    """
+    TestCase: User (verifier) changes statuses to Editing -> Error and Correcting -> Error.
+    """
+
+    api_client.force_authenticate(super_user)
+
+    # create user with department
+    users_data = default_user_data(2,
+                                   roles=[UserRoles.EDITOR.value, UserRoles.VERIFIER.value])
+    user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
+    user_2, dep_2 = create_user_with_department(next(users_data), dep_name="Dep_2")
+
+    # create task
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": 50,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
+        "quarter": 1,
+        "user": user_1.id,
+        "department": dep_1.id,
+    }
+    task = api_client.post(reverse("task-list"), data=task_data, format="json")
+
+    # Login by user_2
+    api_client.logout()
+    api_client.force_authenticate(user_2)
+
+    # (1) Change Task Status to Editing by User_2 (verifier) -> Error
+    new_task_status = Statuses.EDITING.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert not result.data.get("success")
+    assert result.data.get("errors")[0].get("attr") == "status"
+
+
+    # (2) Change Task Status to Correcting by User_2 (verifier) -> Error
+    new_task_status = Statuses.CORRECTING.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert not result.data.get("success")
+    assert result.data.get("errors")[0].get("attr") == "status"
+
+
+@pytest.mark.django_db
+def test_changing_user_by_user(api_client, super_user):
+
+    """
+    TestCase: User (editor) changes user for Task to another user -> Error.
+    """
+
+    api_client.force_authenticate(super_user)
+
+    # create user with department
+    users_data = default_user_data(2,
+                                   roles=[UserRoles.EDITOR.value, UserRoles.CORRECTOR.value])
+    user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
+    user_2, dep_2 = create_user_with_department(next(users_data), dep_name="Dep_2")
+
+    user_2.department = Department.objects.get(id=1)
+    user_2.save()
+
+    # create task
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": 50,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
+        "quarter": 1,
+        "user": user_1.id,
+        "department": dep_1.id,
+    }
+    task = api_client.post(reverse("task-list"), data=task_data, format="json")
+
+    # (1) Change Task Status to Editing by Admin -> Success
+    new_task_status = Statuses.EDITING.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status, "user": user_1.id},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+
+    # Login by user_1
+    api_client.logout()
+    api_client.force_authenticate(user_1)
+
+    # (2) Change task_user to user_2 by user_1 -> Error
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"user": user_2.id},
+        format="json",
+    )
+
+    assert not result.data.get("success")
+    assert result.data.get("errors")[0].get("attr") == "user"
 
