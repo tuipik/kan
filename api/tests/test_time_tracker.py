@@ -525,8 +525,7 @@ def test_handle_update_inside_success(api_client, super_user, freezer):
         data=second_tt_new_data,
     )
 
-    status_in_progress = Status.objects.get_or_none(name=Statuses.EDITING.value)
-    second_tt_actual = TimeTracker.objects.get_or_none(task_status=status_in_progress)
+    second_tt_actual = TimeTracker.objects.get_or_none(task_status=Statuses.EDITING.value)
 
     # After updating THIS timetracker time, we will have 2 new timetrackers on the left and on the right side from THIS timetracker.
     expected_tts_count = 5

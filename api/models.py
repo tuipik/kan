@@ -521,6 +521,7 @@ class TimeTracker(UpdatedModel):
             end_time=data.get("end_time"),
             status=TimeTrackerStatuses.DONE,
             task_status=Statuses.EDITING_QUEUE.value,
+            task_department=data.get("task_department")
         )
 
     def handle_update_time(self, changed_time: str, is_start_time: bool):
@@ -577,7 +578,7 @@ class TimeTracker(UpdatedModel):
                 )
 
             self._create_tracker(
-                data={"start_time": previous_tracker.end_time, "end_time": date_obj}
+                data={"start_time": previous_tracker.end_time, "end_time": date_obj, "task_department": previous_tracker.task_department}
             )
             return
 
@@ -604,7 +605,7 @@ class TimeTracker(UpdatedModel):
                     }
                 )
             self._create_tracker(
-                data={"start_time": date_obj, "end_time": next_tracker.start_time}
+                data={"start_time": date_obj, "end_time": next_tracker.start_time, "task_department": next_tracker.task_department}
             )
             return
 
