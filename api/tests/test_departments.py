@@ -1,19 +1,18 @@
 import pytest
 from rest_framework.reverse import reverse
 
-from api.models import Status, BaseStatuses
-from api.utils import fill_up_statuses
+from api.models import Statuses
 
 
 @pytest.mark.django_db
 def test_CRUD_departments_ok(api_client, super_user):
-    fill_up_statuses()
+    
 
     api_client.force_authenticate(super_user)
 
     # test create
-    statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
-    department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
+    statuses = [Statuses.EDITING_QUEUE.value, Statuses.EDITING.value]
+    department_data = {"name": "test_department", "statuses": [statuses[0], statuses[1]]}
     result = api_client.post(reverse("department-list"), data=department_data)
 
     assert result.data.get("success")
@@ -66,12 +65,12 @@ def test_CRUD_departments_ok(api_client, super_user):
 
 @pytest.mark.django_db
 def test_add_department_head(api_client, super_user):
-    fill_up_statuses()
+    
 
     api_client.force_authenticate(super_user)
 
-    statuses = Status.objects.filter(name__in=[BaseStatuses.WAITING.name, BaseStatuses.IN_PROGRESS.name])
-    department_data = {"name": "test_department", "statuses": [statuses[0].id, statuses[1].id]}
+    statuses = [Statuses.EDITING_QUEUE.value, Statuses.EDITING.value]
+    department_data = {"name": "test_department"}
     department = api_client.post(reverse("department-list"), data=department_data)
     department_id = department.data.get("data")[0].get("id")
 
@@ -89,7 +88,7 @@ def test_add_department_head(api_client, super_user):
     assert updated_department.data.get("data")[0].get("head") == super_user.id
 
     new_department = api_client.post(
-        reverse("department-list"), data={"name": "new_test_department", "statuses": [statuses[0].id, statuses[1].id]}
+        reverse("department-list"), data={"name": "new_test_department"}
     )
     assert new_department.data.get("success")
     new_department_id = new_department.data.get("data")[0].get("id")

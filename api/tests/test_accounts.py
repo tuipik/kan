@@ -1,21 +1,21 @@
 import pytest
 from rest_framework.reverse import reverse
 
-from api.utils import fill_up_statuses
+from api.models import UserRoles
 from conftest import default_user_data, create_user_with_department
 
 
 @pytest.mark.django_db
 def test_CRUD_accounts_ok(api_client, super_user):
-    fill_up_statuses()
+    
 
     default_user_num = 2
-    all_users_num = default_user_num + 1
+    all_users_count = default_user_num + 1 # with Admin
 
     api_client.force_authenticate(super_user)
 
     # test create
-    users_data = default_user_data(default_user_num)
+    users_data = default_user_data(default_user_num, roles=[UserRoles.EDITOR.value, UserRoles.EDITOR.value])
     user_1 = next(users_data)
     user_2 = next(users_data)
     api_client.post(reverse("account-list"), data=user_1)
@@ -23,7 +23,7 @@ def test_CRUD_accounts_ok(api_client, super_user):
 
     all_users = api_client.get(reverse("account-list"))
 
-    assert all_users.data.get("data_len") == all_users_num
+    assert all_users.data.get("data_len") == all_users_count
     assert all_users.data.get("data")[0].get("username") == super_user.username
     assert all_users.data.get("data")[0].get("is_admin") == super_user.is_admin
     assert all_users.data.get("data")[1].get("username") == user_1.get("username")
@@ -81,14 +81,13 @@ def test_CRUD_accounts_ok(api_client, super_user):
     assert result.data.get("message") == "Deleted"
 
     all_users = api_client.get(reverse("account-list"))
-    assert all_users.data.get("data_len") == all_users_num - 1
+    assert all_users.data.get("data_len") == all_users_count - 1
 
 
 @pytest.mark.django_db
 def test_not_admin(api_client):
-    fill_up_statuses()
 
-    users_data = default_user_data(2)
+    users_data = default_user_data(2, roles=[UserRoles.EDITOR.value, UserRoles.EDITOR.value])
     user_1_data = next(users_data)
     user, department = create_user_with_department(user_1_data)
 
@@ -103,9 +102,8 @@ def test_not_admin(api_client):
 
 @pytest.mark.django_db
 def test_not_authenticated(api_client):
-    fill_up_statuses()
 
-    users_data = default_user_data(2)
+    users_data = default_user_data(2, roles=[UserRoles.EDITOR.value, UserRoles.EDITOR.value])
     all_users_resp = api_client.get(reverse("account-list"))
     user_1_resp = api_client.post(reverse("account-list"), data=next(users_data))
 
