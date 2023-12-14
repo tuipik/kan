@@ -294,8 +294,9 @@ class TaskSerializer(serializers.ModelSerializer):
                         "department": "Виконавцем можна призначити тільки користувача з відділу для якого створено задачу"
                     }
                 )
+        request_user = self.context['request'].user
+        if user and self.instance and not department and not request_user.is_admin and status != Statuses.DONE.value:
 
-        if user and self.instance and not department:
             if user.department_id != self.instance.department_id and (
                 user.role not in [UserRoles.CORRECTOR.value, UserRoles.VERIFIER.value]
                 or (
