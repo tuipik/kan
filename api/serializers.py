@@ -14,6 +14,9 @@ from .models import (
     Statuses,
     UserRoles,
 )
+from .user_validation.admin_validation_strategy import AdminValidationStrategy
+from .user_validation.corrector_validation_strategy import CorrectorValidationStrategy
+from .user_validation.verifier_validation_strategy import VerifierValidationStrategy
 
 
 class DepartmentCreateSerializer(serializers.ModelSerializer):
@@ -231,6 +234,14 @@ class TaskSerializer(serializers.ModelSerializer):
             "updated",
         ]
 
+    def _check_department_not_verifier(self):
+        department = self.validated_data.get("department")
+        if department and department.is_verifier:
+            raise ValidationError(
+                {
+                    "department": f"Задача не може належати перевіряючему відділу."
+                }
+            )
     def check_user_has_only_one_task_in_progress(self):
         status = self.validated_data.get("status")
         user = self.validated_data.get("user") or (
@@ -271,16 +282,18 @@ class TaskSerializer(serializers.ModelSerializer):
         status = self.validated_data.get("status") or (
             self.instance.status if self.instance else None
         )
+        request_user = self.context['request'].user
+
+        validation_strategy_data = [self.validated_data, self.instance, request_user, status]
+        admin_strategy = AdminValidationStrategy(*validation_strategy_data)
+        corrector_strategy = CorrectorValidationStrategy(*validation_strategy_data)
+        verifier_strategy = VerifierValidationStrategy(*validation_strategy_data)
 
         if (
             department
             and self.instance
             and department.id != self.instance.department_id
-            and (
-                not self.context.get("request").user.is_admin
-                or self.context.get("request").user.id
-                != self.instance.department.head.id
-            )
+            and admin_strategy.not_admin_not_head()
         ):
             raise ValidationError(
                 {
@@ -294,21 +307,12 @@ class TaskSerializer(serializers.ModelSerializer):
                         "department": "Виконавцем можна призначити тільки користувача з відділу для якого створено задачу"
                     }
                 )
-        request_user = self.context['request'].user
-        if user and self.instance and not department and not request_user.is_admin and status != Statuses.DONE.value:
 
-            if user.department_id != self.instance.department_id and (
+        if user and self.instance and not department:
+            if status != Statuses.DONE.value and user.department_id != self.instance.department_id and (
                 user.role not in [UserRoles.CORRECTOR.value, UserRoles.VERIFIER.value]
-                or (
-                    user.role == UserRoles.CORRECTOR.value
-                    and status
-                    not in [Statuses.EDITING_QUEUE.value, Statuses.CORRECTING_QUEUE.value, Statuses.CORRECTING.value]
-                )
-                or (
-                    user.role == UserRoles.VERIFIER.value
-                    and status
-                    not in [Statuses.TC_QUEUE.value, Statuses.TC.value]
-                )
+                or corrector_strategy.is_role_and_status()
+                or verifier_strategy.is_role_and_status()
             ):
                 raise ValidationError(
                     {
@@ -359,6 +363,7 @@ class TaskSerializer(serializers.ModelSerializer):
         comment_data = self._create_log_data()
         self.check_user_has_only_one_task_in_progress()
         self._check_user_is_department_member_of_task_department()
+        self._check_department_not_verifier()
 
         if year := self.validated_data.get("year"):
             Task.check_year_is_correct(year=year)
@@ -373,7 +378,7 @@ class TaskSerializer(serializers.ModelSerializer):
             self.instance.create_log_comment(**comment_data)
             return self.instance
 
-        time_tracker = self.instance.task_time_trackers.get(
+        time_tracker = self.instance.task_time_trackers.get_or_none(
             task__id=self.instance.id, status=TimeTrackerStatuses.IN_PROGRESS
         )
         if validated_status := self.validated_data.get("status"):
