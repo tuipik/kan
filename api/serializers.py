@@ -15,6 +15,8 @@ from .models import (
     UserRoles,
 )
 
+from .user_validation.department_validator import DepartmentValidator
+
 
 class DepartmentCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -231,6 +233,14 @@ class TaskSerializer(serializers.ModelSerializer):
             "updated",
         ]
 
+    def _check_department_not_verifier(self):
+        department = self.validated_data.get("department")
+        if department and department.is_verifier:
+            raise ValidationError(
+                {
+                    "department": f"Задача не може належати перевіряючему відділу."
+                }
+            )
     def check_user_has_only_one_task_in_progress(self):
         status = self.validated_data.get("status")
         user = self.validated_data.get("user") or (
@@ -264,50 +274,41 @@ class TaskSerializer(serializers.ModelSerializer):
                 )
 
     def _check_user_is_department_member_of_task_department(self):
+        task = self.instance
         user = self.validated_data.get("user") or (
-            self.instance.user if self.instance else None
+            task.user if task else None
         )
         department = self.validated_data.get("department", None)
         status = self.validated_data.get("status") or (
-            self.instance.status if self.instance else None
+            task.status if task else None
         )
+        request_user = self.context['request'].user
+
+        validation_strategy_data = [self.validated_data, task, request_user, status]
+        department_validator = DepartmentValidator(*validation_strategy_data)
 
         if (
-            department
-            and self.instance
-            and department.id != self.instance.department_id
-            and (
-                not self.context.get("request").user.is_admin
-                or self.context.get("request").user.id
-                != self.instance.department.head.id
-            )
+            department_validator.is_vd_department_and_task_department_different()
+            and department_validator.not_admin_or_not_head()
         ):
             raise ValidationError(
                 {
                     "department": "Відділ може змінити тільки адміністратор або керівник відділу для якого створено задачу"
                 }
             )
-        if user and department:
-            if user.department_id != department.id:
-                raise ValidationError(
-                    {
-                        "department": "Виконавцем можна призначити тільки користувача з відділу для якого створено задачу"
-                    }
-                )
+        if user and department and user.department_id != department.id:
+            raise ValidationError(
+                {
+                    "department": "Виконавцем можна призначити тільки користувача з відділу для якого створено задачу"
+                }
+            )
 
-        if user and self.instance and not department:
-            if user.department_id != self.instance.department_id and (
-                user.role not in [UserRoles.CORRECTOR.value, UserRoles.VERIFIER.value]
-                or (
-                    user.role == UserRoles.CORRECTOR.value
-                    and status
-                    not in [Statuses.EDITING_QUEUE.value, Statuses.CORRECTING_QUEUE.value, Statuses.CORRECTING.value]
-                )
-                or (
-                    user.role == UserRoles.VERIFIER.value
-                    and status
-                    not in [Statuses.TC_QUEUE.value, Statuses.TC.value]
-                )
+        if user and task and not department:
+            if status != Statuses.DONE.value and user.department_id != task.department_id and (
+                #user.role not in [UserRoles.CORRECTOR.value, UserRoles.VERIFIER.value]
+                user.role == UserRoles.EDITOR.value
+                or department_validator.validate_corrector_status()
+                or department_validator.validate_verifier_status()
             ):
                 raise ValidationError(
                     {
@@ -317,17 +318,16 @@ class TaskSerializer(serializers.ModelSerializer):
 
         if (
             not user
-            and "user" not in self.validated_data
-            and self.instance
+            and task
             and department
         ):
-            if self.instance.user:
-                if self.instance.user.department_id != department.id:
-                    raise ValidationError(
-                        {
-                            "user": "Не можна змінити відділ і залишити відповідальним користувача з іншого відділу"
-                        }
-                    )
+            if task.user and task.user.department_id != department.id:
+                raise ValidationError(
+
+                    {
+                        "user": "Не можна змінити відділ і залишити відповідальним користувача з іншого відділу"
+                    }
+                )
 
     def _create_log_data(self):
         data = {
@@ -358,6 +358,7 @@ class TaskSerializer(serializers.ModelSerializer):
         comment_data = self._create_log_data()
         self.check_user_has_only_one_task_in_progress()
         self._check_user_is_department_member_of_task_department()
+        self._check_department_not_verifier()
 
         if year := self.validated_data.get("year"):
             Task.check_year_is_correct(year=year)
@@ -372,7 +373,7 @@ class TaskSerializer(serializers.ModelSerializer):
             self.instance.create_log_comment(**comment_data)
             return self.instance
 
-        time_tracker = self.instance.task_time_trackers.get(
+        time_tracker = self.instance.task_time_trackers.get_or_none(
             task__id=self.instance.id, status=TimeTrackerStatuses.IN_PROGRESS
         )
         if validated_status := self.validated_data.get("status"):

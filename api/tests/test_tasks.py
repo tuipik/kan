@@ -397,83 +397,6 @@ def test_check_user_is_department_member_of_task_department(api_client, super_us
 
     assert not result.data.get("success")
 
-@pytest.mark.django_db
-def test_updating_task_status(api_client, super_user):
-    
-    api_client.force_authenticate(super_user)
-    default_user_num = 3
-
-    # create user with department
-    users_data = default_user_data(default_user_num, roles=[UserRoles.EDITOR.value, UserRoles.EDITOR.value, UserRoles.EDITOR.value])
-    user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
-    user_2, dep_2 = create_user_with_department(next(users_data), dep_name="Dep_2")
-    user_3, dep_3 = create_user_with_department(next(users_data), dep_name="Dep_3")
-
-    # Add Statuses for departments
-
-    result = api_client.patch(
-        reverse("department-detail", kwargs={"pk": dep_1.id}),
-        data={"is_verifier": True},
-    )
-
-    assert result.data.get("success")
-
-    result = api_client.patch(
-        reverse("department-detail", kwargs={"pk": dep_2.id}),
-        data={"is_verifier": True},
-    )
-
-    assert result.data.get("success")
-
-    result = api_client.patch(
-        reverse("department-detail", kwargs={"pk": dep_3.id}),
-        data={"is_verifier": True},
-    )
-
-    assert result.data.get("success")
-
-    # create task
-    task_data = {
-        "name": "M-37-103-А",
-        "scale": 50,
-        "editing_time_estimate": 50,
-        "correcting_time_estimate": 25,
-        "tc_time_estimate": 15,
-        "quarter": 1,
-        "category": 3,
-        "user": user_1.id,
-        "department": dep_1.id,
-        "primary_department": dep_1.id,
-    }
-    task = api_client.post(reverse("task-list"), data=task_data, format="json")
-
-    # Changing department by user (not-verifier to not-verifier) - Working only when User = None
-    # update task
-    api_client.logout()
-    api_client.force_authenticate(user_1)
-
-    # Changing task status inside department (from Waiting to In_Progress) -> department == primary_department
-    new_task_status = Statuses.EDITING.value
-    result = api_client.patch(
-        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
-        data={"status": new_task_status},
-        format="json",
-    )
-
-    assert result.data.get("success")
-    assert result.data.get("department") == result.data.get("primary_department")
-
-    # Changing status to Correcting by user from custom department -> user can't change to Correcting (only to Correcting_Queue)
-    new_task_status = Statuses.CORRECTING.value
-    result = api_client.patch(
-        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
-        data={"status": new_task_status, "user": user_3.id},
-        format="json",
-    )
-
-    assert not result.data.get("success")
-    assert result.data.get("errors")[0].get("attr") == "status"
-
 
 @pytest.mark.django_db
 def test_changing_task_status_by_editor(api_client, super_user):
@@ -926,4 +849,215 @@ def test_changing_user_by_user(api_client, super_user):
 
     assert not result.data.get("success")
     assert result.data.get("errors")[0].get("attr") == "user"
+
+
+@pytest.mark.django_db
+def test_set_user_and_change_status(api_client, super_user):
+    """
+    TestCase:
+    1) Admin set user for Task in TC_QUEUE status -> Success.
+    2) Admin change Task status to DONE -> Success.
+    """
+
+    api_client.force_authenticate(super_user)
+
+    # create user with department
+    users_data = default_user_data(2,
+                                   roles=[UserRoles.EDITOR.value, UserRoles.VERIFIER.value])
+    user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
+    user_2, dep_2 = create_user_with_department(next(users_data), dep_name="Dep_2")
+
+    # create task
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": 50,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
+        "quarter": 1,
+        "user": None,
+        "department": dep_1.id,
+    }
+    task = api_client.post(reverse("task-list"), data=task_data, format="json")
+
+    assert task.data.get("success")
+    assert not task.data.get("errors")
+
+    # (1) Change Task Status to TC_QUEUE by Admin -> Success
+    new_task_status = Statuses.TC_QUEUE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+
+    # (2) Admin set user for Task in TC_QUEUE status -> Success
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"user": user_2.id},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+
+    # (3) Change Task Status to DONE by Admin -> Success
+    new_task_status = Statuses.DONE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+
+
+@pytest.mark.django_db
+def test_users_set_the_status_done(api_client, super_user):
+    """
+    TestCase:
+    1) Admin set Status DONE -> Success.
+    2) Editor set Status DONE  -> Error.
+    3) Corrector set Status DONE -> Error.
+    4) Verifier set Status DONE -> Success.
+    """
+
+    api_client.force_authenticate(super_user)
+
+    # create users with departments
+    users_data = default_user_data(3,
+                                   roles=[UserRoles.EDITOR.value, UserRoles.CORRECTOR.value, UserRoles.VERIFIER.value])
+    user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
+    user_2, dep_2 = create_user_with_department(next(users_data), dep_name="Dep_2")
+    user_3, dep_3 = create_user_with_department(next(users_data), dep_name="Dep_3")
+
+    # create task
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": 50,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
+        "quarter": 1,
+        "user": None,
+        "department": dep_1.id,
+    }
+    task = api_client.post(reverse("task-list"), data=task_data, format="json")
+
+    assert task.data.get("success")
+    assert not task.data.get("errors")
+
+    # (1) Admin set Status DONE -> Success
+    new_task_status = Statuses.DONE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+
+    # Admin set Status EDITING_QUEUE back -> Success
+    new_task_status = Statuses.EDITING_QUEUE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+
+    # (2) Editor set Status DONE -> Error
+
+    # Login by user_1 (EDITOR)
+    api_client.logout()
+    api_client.force_authenticate(user_1)
+
+    new_task_status = Statuses.DONE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert not result.data.get("success")
+    assert result.data.get("errors")
+    assert result.data.get("errors")[0].get("attr") == "status"
+
+    # (3) Corrector set Status DONE -> Error
+
+    # Login by user_2 (Corrector)
+    api_client.logout()
+    api_client.force_authenticate(user_2)
+
+    new_task_status = Statuses.DONE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert not result.data.get("success")
+    assert result.data.get("errors")
+    assert result.data.get("errors")[0].get("attr") == "status"
+
+    # (4) Verifier set Status DONE -> Success
+
+    # Login by user_3 (Verifier)
+    api_client.logout()
+    api_client.force_authenticate(user_3)
+
+    new_task_status = Statuses.DONE.value
+    result = api_client.patch(
+        reverse("task-detail", kwargs={"pk": task.data.get("data")[0].get("id")}),
+        data={"status": new_task_status},
+        format="json",
+    )
+
+    assert result.data.get("success")
+    assert not result.data.get("errors")
+
+
+@pytest.mark.django_db
+def test_create_task_for_is_verifier_department(api_client, super_user):
+
+    """
+    TestCase:
+    1) Admin create Task with department (is_verifier) -> Error.
+    """
+
+    api_client.force_authenticate(super_user)
+
+    # create user with department
+    users_data = default_user_data(2,
+                                   roles=[UserRoles.EDITOR.value, UserRoles.VERIFIER.value])
+    user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
+    user_2, dep_2 = create_user_with_department(next(users_data), dep_name="Dep_2")
+
+    dep_2.is_verifier = True
+    dep_2.save()
+
+    # create task
+    task_data = {
+        "name": "M-37-103-А",
+        "scale": 50,
+        "editing_time_estimate": 50,
+        "correcting_time_estimate": 25,
+        "tc_time_estimate": 15,
+        "quarter": 1,
+        "user": None,
+        "department": dep_2.id,
+    }
+    task = api_client.post(reverse("task-list"), data=task_data, format="json")
+
+    assert not task.data.get("success")
+    assert task.data.get("errors")
+    assert task.data.get("errors")[0].get("attr") == "department"
+
 
