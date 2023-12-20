@@ -3,8 +3,8 @@ import pytest
 
 from rest_framework.reverse import reverse
 
-from api.models import TimeTrackerStatuses, Status
-from api.utils import update_time_trackers_hours, fill_up_statuses
+from api.models import TimeTrackerStatuses, Statuses, UserRoles
+from api.utils import update_time_trackers_hours
 from conftest import create_user_with_department, create_task, default_user_data
 from kanban.settings import launch_time
 
@@ -12,7 +12,7 @@ from kanban.settings import launch_time
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 09:00:00")
 def test_workflow_ok(api_client, super_user, freezer):
-    fill_up_statuses()
+
     """
     Create task -> task waiting -> task in_progress user1 -> task in correct queue without user ->
     -> task in correcting user2 -> task in otk queue without user -> otk user3 -> DONE
@@ -20,7 +20,7 @@ def test_workflow_ok(api_client, super_user, freezer):
 
     # Create task -> task waiting ->
     api_client.force_authenticate(super_user)
-    user_data = default_user_data(3)
+    user_data = default_user_data(3, roles=[UserRoles.EDITOR.value, UserRoles.CORRECTOR.value, UserRoles.VERIFIER.value])
     user_executant, department = create_user_with_department(next(user_data))
     user_corrector, department = create_user_with_department(next(user_data))
     user_otk, department = create_user_with_department(next(user_data))
@@ -29,14 +29,14 @@ def test_workflow_ok(api_client, super_user, freezer):
     # task in_progress user1 ->
     task_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"user": user_executant.id, "status": Status.objects.get_or_none(name="IN_PROGRESS").id}, format="json"
+        data={"user": user_executant.id, "status": Statuses.EDITING.value}, format="json"
     )
     time_trackers = api_client.get(
         f'{reverse("time_tracker-list")}?status={TimeTrackerStatuses.IN_PROGRESS}'
     )
 
     assert task_updated.data.get("data")[0].get("user") == user_executant.id
-    assert task_updated.data.get("data")[0].get("status") == Status.objects.get_or_none(name="IN_PROGRESS").id
+    assert task_updated.data.get("data")[0].get("status") == Statuses.EDITING.value
     assert time_trackers.data.get("data_len") == 1
     assert time_trackers.data.get("data")[0].get("task") == task.id
     assert time_trackers.data.get("data")[0].get("user") == user_executant.id
@@ -52,23 +52,23 @@ def test_workflow_ok(api_client, super_user, freezer):
     no_user = None
     task_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"user": no_user, "status": Status.objects.get_or_none(name="CORRECTING_QUEUE").id},
+        data={"user": no_user, "status": Statuses.CORRECTING_QUEUE.value},
         format="json",
     )
     time_trackers = api_client.get(
-        f'{reverse("time_tracker-list")}?task_status={Status.objects.get_or_none(name="IN_PROGRESS").id}'
+        f'{reverse("time_tracker-list")}?task_status={Statuses.EDITING.value}'
     )
 
     assert task_updated.data.get("data")[0].get("user") == no_user
     assert (
-        task_updated.data.get("data")[0].get("status") == Status.objects.get_or_none(name="CORRECTING_QUEUE").id
+        task_updated.data.get("data")[0].get("status") == Statuses.CORRECTING_QUEUE.value
     )
     assert time_trackers.data.get("data_len") == 1
     assert time_trackers.data.get("data")[0].get("task") == task.id
     assert time_trackers.data.get("data")[0].get("user") == user_executant.id
     assert time_trackers.data.get("data")[0].get("status") == TimeTrackerStatuses.DONE
     assert (
-        time_trackers.data.get("data")[0].get("task_status") == Status.objects.get_or_none(name="IN_PROGRESS").id
+        time_trackers.data.get("data")[0].get("task_status") == Statuses.EDITING.value
     )
     assert time_trackers.data.get("data")[0].get("hours") == hours_passed - launch_time
 
@@ -77,14 +77,14 @@ def test_workflow_ok(api_client, super_user, freezer):
     freezer.move_to(datetime.datetime.fromisoformat(correct_start_time))
     task_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"user": user_corrector.id, "status": Status.objects.get_or_none(name="CORRECTING").id}, format="json"
+        data={"user": user_corrector.id, "status": Statuses.CORRECTING.value}, format="json"
     )
     time_trackers = api_client.get(
-        f'{reverse("time_tracker-list")}?user__id={user_corrector.id}&task_status={Status.objects.get_or_none(name="CORRECTING").id}'
+        f'{reverse("time_tracker-list")}?user__id={user_corrector.id}&task_status={Statuses.CORRECTING.value}'
     )
 
     assert task_updated.data.get("data")[0].get("user") == user_corrector.id
-    assert task_updated.data.get("data")[0].get("status") == Status.objects.get_or_none(name="CORRECTING").id
+    assert task_updated.data.get("data")[0].get("status") == Statuses.CORRECTING.value
     assert time_trackers.data.get("data_len") == 1
     assert time_trackers.data.get("data")[0].get("task") == task.id
     assert time_trackers.data.get("data")[0].get("user") == user_corrector.id
@@ -101,15 +101,15 @@ def test_workflow_ok(api_client, super_user, freezer):
     no_user = None
     task_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"user": no_user, "status": Status.objects.get_or_none(name="VTK_QUEUE").id},
+        data={"user": no_user, "status": Statuses.TC_QUEUE.value},
         format="json",
     )
     time_trackers = api_client.get(
-        f'{reverse("time_tracker-list")}?user__id={user_corrector.id}&task_status={Status.objects.get_or_none(name="CORRECTING").id}'
+        f'{reverse("time_tracker-list")}?user__id={user_corrector.id}&task_status={Statuses.CORRECTING.value}'
     )
 
     assert task_updated.data.get("data")[0].get("user") == no_user
-    assert task_updated.data.get("data")[0].get("status") == Status.objects.get_or_none(name="VTK_QUEUE").id
+    assert task_updated.data.get("data")[0].get("status") == Statuses.TC_QUEUE.value
     assert time_trackers.data.get("data_len") == 1
     assert time_trackers.data.get("data")[0].get("task") == task.id
     assert time_trackers.data.get("data")[0].get("user") == user_corrector.id
@@ -121,14 +121,14 @@ def test_workflow_ok(api_client, super_user, freezer):
     freezer.move_to(datetime.datetime.fromisoformat(otk_start_time))
     task_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"user": user_otk.id, "status": Status.objects.get_or_none(name="VTK").id}, format="json"
+        data={"user": user_otk.id, "status": Statuses.TC.value}, format="json"
     )
     time_trackers = api_client.get(
-        f'{reverse("time_tracker-list")}?user__id={user_otk.id}&task_status={Status.objects.get_or_none(name="VTK").id}'
+        f'{reverse("time_tracker-list")}?user__id={user_otk.id}&task_status={Statuses.TC.value}'
     )
 
     assert task_updated.data.get("data")[0].get("user") == user_otk.id
-    assert task_updated.data.get("data")[0].get("status") == Status.objects.get_or_none(name="VTK").id
+    assert task_updated.data.get("data")[0].get("status") == Statuses.TC.value
     assert time_trackers.data.get("data_len") == 1
     assert time_trackers.data.get("data")[0].get("task") == task.id
     assert time_trackers.data.get("data")[0].get("user") == user_otk.id
@@ -145,15 +145,15 @@ def test_workflow_ok(api_client, super_user, freezer):
     no_user = None
     task_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
-        data={"user": no_user, "status": Status.objects.get_or_none(name="DONE").id},
+        data={"user": no_user, "status": Statuses.DONE.value},
         format="json",
     )
     time_trackers = api_client.get(
-        f'{reverse("time_tracker-list")}?user__id={user_otk.id}&task_status={Status.objects.get_or_none(name="VTK").id}'
+        f'{reverse("time_tracker-list")}?user__id={user_otk.id}&task_status={Statuses.TC.value}'
     )
 
     assert task_updated.data.get("data")[0].get("user") == no_user
-    assert task_updated.data.get("data")[0].get("status") == Status.objects.get_or_none(name="DONE").id
+    assert task_updated.data.get("data")[0].get("status") == Statuses.DONE.value
     assert time_trackers.data.get("data_len") == 1
     assert time_trackers.data.get("data")[0].get("task") == task.id
     assert time_trackers.data.get("data")[0].get("user") == user_otk.id
@@ -164,8 +164,9 @@ def test_workflow_ok(api_client, super_user, freezer):
 @pytest.mark.django_db
 @pytest.mark.freeze_time("2023-06-05 09:00:00")
 def test_aggregate_status_time_done(api_client, super_user, freezer):
-    fill_up_statuses()
-    user_data = default_user_data(3)
+    
+    user_data = default_user_data(2, roles=[UserRoles.EDITOR.value, UserRoles.EDITOR.value])
+
     user_executant_1, department = create_user_with_department(next(user_data))
     user_executant_2, department = create_user_with_department(next(user_data))
     task_1 = create_task(department=department, name="M-36-23-B")
@@ -174,11 +175,11 @@ def test_aggregate_status_time_done(api_client, super_user, freezer):
     api_client.force_authenticate(super_user)
     task_1_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task_1.id}),
-        data={"user": user_executant_1.id, "status": Status.objects.get_or_none(name="IN_PROGRESS").id}, format="json"
+        data={"user": user_executant_1.id, "status": Statuses.EDITING.value}, format="json"
     )
     task_2_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task_2.id}),
-        data={"user": user_executant_2.id, "status": Status.objects.get_or_none(name="IN_PROGRESS").id}, format="json"
+        data={"user": user_executant_2.id, "status": Statuses.EDITING.value}, format="json"
     )
 
     hours_passed = 1
@@ -205,7 +206,7 @@ def test_aggregate_status_time_done(api_client, super_user, freezer):
     no_user = None
     task_1_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task_1.id}),
-        data={"user": no_user, "status": Status.objects.get(name="CORRECTING_QUEUE").id},
+        data={"user": no_user, "status": Statuses.CORRECTING_QUEUE.value},
         format="json",
     )
 
@@ -213,7 +214,7 @@ def test_aggregate_status_time_done(api_client, super_user, freezer):
         reverse("task-detail", kwargs={"pk": task_2.id}),
         data={
             "user": task_2_updated.data.get("data")[0].get("user"),
-            "status": Status.objects.get_or_none(name="WAITING").id,
+            "status": Statuses.EDITING_QUEUE.value,
         },
         format="json",
     )
@@ -224,7 +225,7 @@ def test_aggregate_status_time_done(api_client, super_user, freezer):
         reverse("task-detail", kwargs={"pk": task_2.id}),
         data={
             "user": task_2_updated.data.get("data")[0].get("user"),
-            "status": Status.objects.get_or_none(name="IN_PROGRESS").id,
+            "status": Statuses.EDITING.value,
         },
         format="json",
     )
@@ -234,9 +235,9 @@ def test_aggregate_status_time_done(api_client, super_user, freezer):
     no_user = None
     task_2_updated = api_client.patch(
         reverse("task-detail", kwargs={"pk": task_2.id}),
-        data={"user": no_user, "status": Status.objects.get_or_none(name="CORRECTING_QUEUE").id},
+        data={"user": no_user, "status": Statuses.CORRECTING_QUEUE.value},
         format="json",
     )
 
-    assert task_1_updated.data.get("data")[0].get("change_time_done") == 3
-    assert task_2_updated.data.get("data")[0].get("change_time_done") == 6
+    assert task_1_updated.data.get("data")[0].get("editing_time_done") == 3
+    assert task_2_updated.data.get("data")[0].get("editing_time_done") == 6
