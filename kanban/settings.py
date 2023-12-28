@@ -39,7 +39,7 @@ DEBUG = bool(os.environ.get("DEBUG", default=0))
 
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS").split(" ")
 
-CORS_ORIGIN_ALLOW_ALL = False
+USE_X_FORWARDED_HOST = True
 CORS_ORIGIN_WHITELIST = (
        'http://localhost:3000',
        'http://127.0.0.1:3000',
@@ -52,10 +52,10 @@ CORS_ORIGIN_WHITELIST = (
        'http://localhost',
        'http://192.168.101.186:8000',
        'http://192.168.101.186',
-       'http://192.168.101.157',
+       'http://192.168.101.164',
        'http://kan.gis',
 )
-CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = CORS_ORIGIN_WHITELIST
 
 # Application definition
 
@@ -215,7 +215,8 @@ USE_I18N = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = 'static-files/'
+STATIC_ROOT = '/kan/staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

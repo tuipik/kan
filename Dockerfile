@@ -4,9 +4,8 @@ MAINTAINER Maksim Tiupa
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-RUN mkdir /kan
 WORKDIR /kan
-COPY . /kan
+COPY requirements.txt .
 
 RUN apk add --update --no-cache postgresql-client
 RUN apk add --update --no-cache --virtual .tmp-build-deps \
@@ -15,6 +14,8 @@ RUN apk add --update bash && rm -rf /var/cache/apk/*
 RUN pip install --upgrade pip
 RUN pip install -r /kan/requirements.txt
 RUN apk del .tmp-build-deps
+
+COPY . .
 
 RUN adduser -D user
 USER user
