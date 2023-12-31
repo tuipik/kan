@@ -95,7 +95,7 @@ class UserManager(BaseUserManager, GetObjectManager):
 
 class UserRoles(models.TextChoices):
     EDITOR = "EDITOR", "Виконавець"
-    CORRECTOR = "CORRECTOR", "Коректувальник"
+    CORRECTOR = "CORRECTOR", "Коректор"
     VERIFIER = "VERIFIER", "Контролер"
 
 
@@ -198,7 +198,7 @@ class User(AbstractBaseUser, UpdatedModel, PermissionsMixin):
         ):
             raise ValidationError(
                 {
-                    "status": "Коректувальник не може змінити статус задачі на 'Технічний контроль' та 'Завершено'."
+                    "status": "Коректор не може змінити статус задачі на 'Технічний контроль' та 'Завершено'."
                 }
             )
 

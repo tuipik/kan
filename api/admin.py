@@ -23,12 +23,12 @@ class AdditionForeignField:
     head_name.short_description = "Керівник відділу"
 
     def status_name(self, obj):
-        return obj.status.translation
+        return getattr(obj.status, 'translation', obj.status)
 
     status_name.short_description = 'Статус'
 
     def task_status_name(self, obj):
-        return obj.task_status.translation
+        return getattr(obj.task_status, 'translation', obj.task_status)
 
     task_status_name.short_description = 'Статус задачі'
 
@@ -178,6 +178,8 @@ class TimeTrackerAdmin(admin.ModelAdmin, AdditionForeignField):
         model = TimeTracker
 
     def user_link(self, obj):
+        if not obj.user:
+            return
         url = reverse("admin:api_user_change", args=[obj.user.id])
         link = f'<a href="{url}">{obj.user}</a>'
         return mark_safe(link)
