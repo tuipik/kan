@@ -23,6 +23,7 @@ services:
     depends_on:
       - db_dev
       - redis_dev
+
   db_dev:
     container_name: kan_db_dev
     image: postgres:15
@@ -33,9 +34,11 @@ services:
       - ${HOME}/postgres_data_dev:/var/lib/postgresql/data/
     env_file:
       - envs/env_dev
+
   redis_dev:
     container_name: kan_redis_dev
     image: redis:7.2.2-alpine
+
   celery_dev:
     container_name: kan_celery_dev
     build: .
@@ -46,6 +49,7 @@ services:
       - envs/env_dev
     depends_on:
       - redis_dev
+
   celery-beat_dev:
     container_name: kan_celery_beat_dev
     build: .
@@ -56,6 +60,7 @@ services:
       - envs/env_dev
     depends_on:
       - redis_dev
+
   pgbackups_dev:
     container_name: kan_backup_dev
     image: prodrigestivill/postgres-backup-local
