@@ -51,7 +51,7 @@ class UserCreationForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ("username", "first_name", "last_name", "department")
+        fields = ("username", "first_name", "last_name", "department", "role")
 
     def clean_password2(self):
         password1 = self.cleaned_data.get("password1")
@@ -78,6 +78,7 @@ class UserChangeForm(forms.ModelForm):
             "first_name",
             "last_name",
             "department",
+            "role",
             "is_active",
             "is_admin",
         )
@@ -95,11 +96,11 @@ class UserAdmin(BaseUserAdmin):
         "first_name",
         "last_name",
         "department",
-        "is_active",
         "role",
+        "is_active",
         "is_admin",
     )
-    list_filter = ("department", "is_active")
+    list_filter = ("department", "role", "is_active")
     fieldsets = (
         (None, {"fields": ("username", "password")}),
         (
@@ -109,6 +110,7 @@ class UserAdmin(BaseUserAdmin):
                     "first_name",
                     "last_name",
                     "department",
+                    "role",
                     "is_active",
                 )
             },
@@ -125,6 +127,7 @@ class UserAdmin(BaseUserAdmin):
                     "first_name",
                     "last_name",
                     "department",
+                    "role",
                     "password1",
                     "password2",
                 ),
@@ -148,7 +151,7 @@ class DepartmentAdmin(admin.ModelAdmin, AdditionForeignField):
 class TaskAdmin(admin.ModelAdmin, AdditionForeignField):
     list_display = (
         "name",
-        "status_name",
+        "get_status_display",
         "scale",
         "department_name",
         "user_name",
@@ -160,7 +163,7 @@ class TaskAdmin(admin.ModelAdmin, AdditionForeignField):
         "year",
         "done",
     )
-    list_filter = ("department", "status", "user", "quarter", "done")
+    list_filter = ("department", "status", "category", "user", "quarter", "done")
     search_fields = ("name",)
     ordering = ("name", "department")
 

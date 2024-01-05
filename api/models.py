@@ -249,10 +249,10 @@ class TaskScales(models.IntegerChoices):
 
 
 class Statuses(models.TextChoices):
-    EDITING_QUEUE = "EDITING_QUEUE", "Черга редагування"
-    EDITING = "EDITING", "Редагування"
-    CORRECTING_QUEUE = "CORRECTING_QUEUE", "Черга коректування"
-    CORRECTING = "CORRECTING", "Коректування"
+    EDITING_QUEUE = "EDITING_QUEUE", "Черга виконання"
+    EDITING = "EDITING", "Виконання"
+    CORRECTING_QUEUE = "CORRECTING_QUEUE", "Черга коректури"
+    CORRECTING = "CORRECTING", "Коректура"
     TC_QUEUE = "TC_QUEUE", "Черга технічного контролю"
     TC = "TC", "Технічний контроль"
     DONE = "DONE", "Завершено"
