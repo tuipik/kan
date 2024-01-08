@@ -95,8 +95,8 @@ class UserManager(BaseUserManager, GetObjectManager):
 
 class UserRoles(models.TextChoices):
     EDITOR = "EDITOR", "Виконавець"
-    CORRECTOR = "CORRECTOR", "Коректор"
-    VERIFIER = "VERIFIER", "Контролер"
+    CORRECTOR = "CORRECTOR", "Редактор"
+    VERIFIER = "VERIFIER", "Технічний контроль"
 
 
 class User(AbstractBaseUser, UpdatedModel, PermissionsMixin):
