@@ -204,6 +204,7 @@ class TaskSerializer(serializers.ModelSerializer):
     updated = serializers.DateTimeField(
         read_only=True, format=settings.REST_FRAMEWORK["DATETIME_FORMAT"]
     )
+    time_trackers = TimeTrackerSerializer(many=True, read_only=True, source="task_time_trackers")
 
     class Meta:
         model = Task
@@ -231,6 +232,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "done",
             "created",
             "updated",
+            "time_trackers",
         ]
 
     def _check_department_not_verifier(self):
