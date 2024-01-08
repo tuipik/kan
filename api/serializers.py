@@ -204,6 +204,7 @@ class TaskSerializer(serializers.ModelSerializer):
     updated = serializers.DateTimeField(
         read_only=True, format=settings.REST_FRAMEWORK["DATETIME_FORMAT"]
     )
+    time_trackers = TimeTrackerSerializer(many=True, read_only=True, source="task_time_trackers")
 
     class Meta:
         model = Task
@@ -231,6 +232,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "done",
             "created",
             "updated",
+            "time_trackers",
         ]
 
     def _check_department_not_verifier(self):
@@ -276,7 +278,7 @@ class TaskSerializer(serializers.ModelSerializer):
     def _check_user_is_department_member_of_task_department(self):
         task = self.instance
         user = self.validated_data.get("user") or (
-            task.user if task else None
+            task.user if task and task.user and task.user.role != UserRoles.VERIFIER.value else None
         )
         department = self.validated_data.get("department", None)
         status = self.validated_data.get("status") or (
