@@ -95,8 +95,8 @@ class UserManager(BaseUserManager, GetObjectManager):
 
 class UserRoles(models.TextChoices):
     EDITOR = "EDITOR", "Виконавець"
-    CORRECTOR = "CORRECTOR", "Коректор"
-    VERIFIER = "VERIFIER", "Контролер"
+    CORRECTOR = "CORRECTOR", "Редактор"
+    VERIFIER = "VERIFIER", "Технічний контроль"
 
 
 class User(AbstractBaseUser, UpdatedModel, PermissionsMixin):
@@ -241,11 +241,13 @@ class YearQuarter(models.IntegerChoices):
 
 
 class TaskScales(models.IntegerChoices):
+    TEN = 10, "1:10 000"
     TWENTY_FIVE = 25, "1:25 000"
     FIFTY = 50, "1:50 000"
     ONE_HUNDRED = 100, "1:100 000"
     TWO_HUNDRED = 200, "1:200 000"
     FIVE_HUNDRED = 500, "1:500 000"
+    ONE_MILLION = 1000, "1:1 000 000"
 
 
 class Statuses(models.TextChoices):
