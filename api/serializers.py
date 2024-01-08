@@ -276,7 +276,7 @@ class TaskSerializer(serializers.ModelSerializer):
     def _check_user_is_department_member_of_task_department(self):
         task = self.instance
         user = self.validated_data.get("user") or (
-            task.user if task else None
+            task.user if task and task.user and task.user.role != UserRoles.VERIFIER.value else None
         )
         department = self.validated_data.get("department", None)
         status = self.validated_data.get("status") or (
