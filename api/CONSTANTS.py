@@ -6,11 +6,13 @@ TASK_NAME_REGEX = {
     #   \p{N}{2} - будьяка цифра 2 рази підряд
     #   \p{N}{1,3} - будьяка цифра від 1 до 3 разів підряд
     #   \p{L} - будьяка літера
+    10: ["^\p{L}-\p{N}{2}-\p{N}{1,3}(-\p{L}){2}-[1-4]$", "M-36-111-Б-г-1"],  # M-36-111-Б-г-1
     25: ["^\p{L}-\p{N}{2}-\p{N}{1,3}(-\p{L}){2}$", "M-36-111-Б-г"],  # M-36-111-Б-г
     50: ["^\p{L}-\p{N}{2}-\p{N}{1,3}-\p{L}$", "M-36-111-Б"],  # M-36-111-Б
     100: ["^\p{L}-\p{N}{2}-\p{N}{1,3}$", "M-36-111"],  # M-36-111
     200: ["^\p{L}-\p{N}{2}-(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$", "M-36-XI"],  # M-36-XI
     500: ["^\p{L}-\p{N}{2}-\p{L}$", "M-36-Б"],  # M-36-Б
+    1000: ["^\p{L}-\p{N}{2}$", "M-36"],  # M-36
 }
 COLONS_NUM = 60
 COLONS_NUM_STR_LIST = [str(num) for num in range(1, COLONS_NUM + 1)]
@@ -25,6 +27,7 @@ ROMAN_NUMS = [
 ROW_LATIN_LETTERS = [letter for letter in string.ascii_uppercase if letter not in ["W", "X", "Y", "Z", ]]
 CYRILLIC_LETTERS_UP = ["А", "Б", "В", "Г"]
 CYRILLIC_LETTERS_DOWN = ["а", "б", "в", "г"]
+TEN_SCALE_NUMBERS = ["1", "2", "3", "4"]
 
 ROW_ERROR = "Перша літера назви - значення ряда, має бути ЛАТИНСЬКОЮ літерою у верхньому регістрі від A до V"
 COLON_ERROR = "Друга цифра - значення колони, має бути цифрою від 1 до 60"
@@ -32,8 +35,17 @@ THOUSANDS_ERROR = "Цифра номенклатури масштабу 100 000 
 ROMAN_ERROR = "Цифра номенклатури масштабу 200 000 має бути римською цифрою в діапазоні від 1 до 36 написаною латинськими літерами"
 CYRILLIC_LETTERS_UP_ERROR = "Літера для позначення номенклатури масштабу 50 000 має бути КИРИЛИЧНОЮ літерою у верхньому регістрі від А до Г"
 CYRILLIC_LETTERS_DOWN_ERROR = "Остання літера для номенклатури масштабу 25 000 має бути КИРИЛИЧНОЮ літерою у нижньому регістрі від а до г"
+TEN_SCALE_NUMBERS_ERROR = "Остання цифра номенклатури масштабу 10 000 має бути від 1 до 4"
 
 TASK_NAME_RULES = {
+    10: {
+        0: {"rule": ROW_LATIN_LETTERS, "error": ROW_ERROR},
+        1: {"rule": COLONS_NUM_STR_LIST, "error": COLON_ERROR},
+        2: {"rule": THOUSANDS_STR_LIST, "error": THOUSANDS_ERROR},
+        3: {"rule": CYRILLIC_LETTERS_UP, "error": CYRILLIC_LETTERS_UP_ERROR},
+        4: {"rule": CYRILLIC_LETTERS_DOWN, "error": CYRILLIC_LETTERS_DOWN_ERROR},
+        5: {"rule": TEN_SCALE_NUMBERS, "error": TEN_SCALE_NUMBERS_ERROR},
+    },
     25: {
         0: {"rule": ROW_LATIN_LETTERS, "error": ROW_ERROR},
         1: {"rule": COLONS_NUM_STR_LIST, "error": COLON_ERROR},
@@ -61,5 +73,9 @@ TASK_NAME_RULES = {
         0: {"rule": ROW_LATIN_LETTERS, "error": ROW_ERROR},
         1: {"rule": COLONS_NUM_STR_LIST, "error": COLON_ERROR},
         2: {"rule": CYRILLIC_LETTERS_UP, "error": CYRILLIC_LETTERS_UP_ERROR},
+    },
+    1000: {
+        0: {"rule": ROW_LATIN_LETTERS, "error": ROW_ERROR},
+        1: {"rule": COLONS_NUM_STR_LIST, "error": COLON_ERROR},
     },
 }
