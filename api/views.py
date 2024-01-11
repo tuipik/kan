@@ -271,6 +271,10 @@ class TaskViewSet(ResponseModelViewSet):
 
         return super().update(request, *args, **kwargs)
 
+    def perform_destroy(self, instance):
+        instance.map_sheet.delete()
+        return super(ResponseModelViewSet, self).perform_destroy(instance)
+
     def get_permissions(self):
         if self.action in [
             "list",

@@ -6,7 +6,8 @@ from rest_framework.test import APIClient
 
 from api.CONSTANTS import ROWS_CHOICES, COLUMNS_CHOICES, TRAPEZE_500K_AND_50K_CHOICES, ROMAN_NUMBERS, \
     TRAPEZE_100K_CHOICES, TRAPEZE_25K_CHOICES, TRAPEZE_10K_CHOICES
-from api.models import User, Department, Task, TimeTracker, Statuses
+from api.models import User, Department, Task, TimeTracker, Statuses, Comment
+from map_sheet.models import MapSheet
 
 
 @pytest.fixture(scope="function")
@@ -98,6 +99,7 @@ def create_time_tracker(task: Task, user: User) -> TimeTracker:
     return TimeTracker.objects.create(**data)
 
 
+# MapSheet
 @pytest.fixture(scope="session")
 def column_name():
     yield COLUMNS_CHOICES[0]
@@ -107,26 +109,26 @@ def row_name():
     yield ROWS_CHOICES[0]
 
 @pytest.fixture(scope="session")
-def square_500k():
+def trapeze_500k():
     yield TRAPEZE_500K_AND_50K_CHOICES[0]
 
 @pytest.fixture(scope="session")
-def square_200k():
+def trapeze_200k():
     yield ROMAN_NUMBERS[0]
 @pytest.fixture(scope="session")
-def square_100k():
+def trapeze_100k():
     yield TRAPEZE_100K_CHOICES[0]
 
 @pytest.fixture(scope="session")
-def square_50k():
+def trapeze_50k():
     yield TRAPEZE_500K_AND_50K_CHOICES[0]
 
 @pytest.fixture(scope="session")
-def square_25k():
+def trapeze_25k():
     yield TRAPEZE_25K_CHOICES[0]
 
 @pytest.fixture(scope="session")
-def square_10k():
+def trapeze_10k():
     yield TRAPEZE_10K_CHOICES[0]
 
 @pytest.fixture(scope="session")
@@ -134,25 +136,43 @@ def map_sheet_1kk_name(row_name, column_name):
     yield f"{row_name}-{column_name}"
 
 @pytest.fixture(scope="session")
-def map_sheet_500k_name(map_sheet_1kk_name, square_500k):
-    yield f"{map_sheet_1kk_name}-{square_500k}"
+def map_sheet_500k_name(map_sheet_1kk_name, trapeze_500k):
+    yield f"{map_sheet_1kk_name}-{trapeze_500k}"
 
 @pytest.fixture(scope="session")
-def map_sheet_200k_name(map_sheet_1kk_name, square_200k):
-    yield f"{map_sheet_1kk_name}-{square_200k}"
+def map_sheet_200k_name(map_sheet_1kk_name, trapeze_200k):
+    yield f"{map_sheet_1kk_name}-{trapeze_200k}"
 
 @pytest.fixture(scope="session")
-def map_sheet_100k_name(map_sheet_1kk_name, square_100k):
-    yield f"{map_sheet_1kk_name}-{square_100k}"
+def map_sheet_100k_name(map_sheet_1kk_name, trapeze_100k):
+    yield f"{map_sheet_1kk_name}-{trapeze_100k}"
 
 @pytest.fixture(scope="session")
-def map_sheet_50k_name(map_sheet_100k_name, square_50k):
-    yield f"{map_sheet_100k_name}-{square_50k}"
+def map_sheet_50k_name(map_sheet_100k_name, trapeze_50k):
+    yield f"{map_sheet_100k_name}-{trapeze_50k}"
 
 @pytest.fixture(scope="session")
-def map_sheet_25k_name(map_sheet_50k_name, square_25k):
-    yield f"{map_sheet_50k_name}-{square_25k}"
+def map_sheet_25k_name(map_sheet_50k_name, trapeze_25k):
+    yield f"{map_sheet_50k_name}-{trapeze_25k}"
 
 @pytest.fixture(scope="session")
-def map_sheet_10k_name(map_sheet_25k_name, square_10k):
-    yield f"{map_sheet_25k_name}-{square_10k}"
+def map_sheet_10k_name(map_sheet_25k_name, trapeze_10k):
+    yield f"{map_sheet_25k_name}-{trapeze_10k}"
+
+
+# Department
+@pytest.fixture
+def gis_department():
+    department = Department(name="GIS")
+    department.save()
+    yield department
+
+# Auto use
+@pytest.fixture(autouse=True)
+def clear_table():
+    models = (User, Task, Department, TimeTracker, Comment, MapSheet,)
+    for model in models:
+        model.objects.all().delete()
+    yield
+    for model in models:
+        model.objects.all().delete()

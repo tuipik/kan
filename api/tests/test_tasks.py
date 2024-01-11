@@ -3,10 +3,11 @@ import pytest
 from rest_framework.reverse import reverse
 
 from api.CONSTANTS import TASK_NAME_RULES
-from api.models import TimeTracker, Statuses, Department
+from api.models import TimeTracker, Statuses, Department, Task
 from api.choices import UserRoles, TimeTrackerStatuses
 from conftest import create_user_with_department, create_task, default_user_data, create_default_user
 from kanban.settings import workday_time, launch_time
+from map_sheet.models import MapSheet
 
 
 @pytest.mark.django_db
@@ -188,8 +189,8 @@ def test_CRUD_tasks_ok(api_client, super_user):
     assert result.data.get("data_len") == 0
     assert result.data.get("message") == "Deleted"
 
-    all_tasks = api_client.get(reverse("task-list"))
-    assert all_tasks.data.get("data_len") == 0
+    assert not Task.objects.all().exists()
+    assert not MapSheet.objects.all().exists()
 
 
 @pytest.mark.django_db
