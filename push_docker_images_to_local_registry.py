@@ -6,7 +6,7 @@ import docker
 
 class LocalRegistryDockerImagesHandler:
     KAN_IMAGES_LIST = [
-        "kan-front:latest"
+        "kan-front:latest",
         "kan_api:latest",
         "kan_celery-beat",
         "kan_celery",
