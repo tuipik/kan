@@ -3,7 +3,8 @@ import pytest
 from rest_framework.reverse import reverse
 
 from api.CONSTANTS import TASK_NAME_RULES
-from api.models import TimeTracker, TimeTrackerStatuses, Statuses, UserRoles, Department
+from api.models import TimeTracker, Statuses, Department
+from api.choices import UserRoles, TimeTrackerStatuses
 from conftest import create_user_with_department, create_task, default_user_data, create_default_user
 from kanban.settings import workday_time, launch_time
 

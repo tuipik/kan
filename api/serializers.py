@@ -4,16 +4,16 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from kanban import settings
+from map_sheet.models import MapSheet
 from .models import (
     User,
     Department,
     Task,
     Comment,
     TimeTracker,
-    TimeTrackerStatuses,
     Statuses,
-    UserRoles,
 )
+from .choices import UserRoles, TimeTrackerStatuses
 
 from .user_validation.department_validator import DepartmentValidator
 
@@ -356,6 +356,24 @@ class TaskSerializer(serializers.ModelSerializer):
             data["is_log"] = True
         return data
 
+    def _save_map_sheet(self):
+        map_sheet_data = {}
+
+        map_sheet_name = self.validated_data['name']
+        map_sheet_data['name'] = map_sheet_name
+        map_sheet_data['scale'] = self.validated_data['scale']
+
+        row, column, *squares = map_sheet_name.split('-')
+        map_sheet_data['row'] = row
+        map_sheet_data['column'] = column
+
+        match len(squares):
+            case 4: # 10k
+                map_sheet_data["square_500k"] = squares[0]
+                map_sheet_data["square_500k"] = squares[0]
+
+        MapSheet.objects.create(**map_sheet_data)
+
     def save(self, **kwargs):
         comment_data = self._create_log_data()
         self.check_user_has_only_one_task_in_progress()
@@ -373,6 +391,7 @@ class TaskSerializer(serializers.ModelSerializer):
             super().save()
             self.instance.start_time_tracker()
             self.instance.create_log_comment(**comment_data)
+            self._save_map_sheet()
             return self.instance
 
         time_tracker = self.instance.task_time_trackers.get_or_none(
@@ -417,7 +436,6 @@ class TaskSerializer(serializers.ModelSerializer):
             time_tracker.change_status_done()
             super().save()
             self.instance.start_time_tracker()
-            self.instance.create_log_comment(**comment_data)
             return self.instance
 
         super().save()

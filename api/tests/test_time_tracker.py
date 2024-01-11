@@ -3,7 +3,8 @@ import datetime
 import pytest
 from rest_framework.reverse import reverse
 
-from api.models import TimeTrackerStatuses, TimeTracker, Statuses
+from api.models import TimeTracker, Statuses
+from api.choices import TimeTrackerStatuses
 from kanban.tasks import update_task_time_in_progress
 
 

@@ -4,6 +4,8 @@ import pytest
 
 from rest_framework.test import APIClient
 
+from api.CONSTANTS import ROWS_CHOICES, COLUMNS_CHOICES, TRAPEZE_500K_AND_50K_CHOICES, ROMAN_NUMBERS, \
+    TRAPEZE_100K_CHOICES, TRAPEZE_25K_CHOICES, TRAPEZE_10K_CHOICES
 from api.models import User, Department, Task, TimeTracker, Statuses
 
 
@@ -94,3 +96,63 @@ def create_time_tracker(task: Task, user: User) -> TimeTracker:
         "task_status": 1
     }
     return TimeTracker.objects.create(**data)
+
+
+@pytest.fixture(scope="session")
+def column_name():
+    yield COLUMNS_CHOICES[0]
+
+@pytest.fixture(scope="session")
+def row_name():
+    yield ROWS_CHOICES[0]
+
+@pytest.fixture(scope="session")
+def square_500k():
+    yield TRAPEZE_500K_AND_50K_CHOICES[0]
+
+@pytest.fixture(scope="session")
+def square_200k():
+    yield ROMAN_NUMBERS[0]
+@pytest.fixture(scope="session")
+def square_100k():
+    yield TRAPEZE_100K_CHOICES[0]
+
+@pytest.fixture(scope="session")
+def square_50k():
+    yield TRAPEZE_500K_AND_50K_CHOICES[0]
+
+@pytest.fixture(scope="session")
+def square_25k():
+    yield TRAPEZE_25K_CHOICES[0]
+
+@pytest.fixture(scope="session")
+def square_10k():
+    yield TRAPEZE_10K_CHOICES[0]
+
+@pytest.fixture(scope="session")
+def map_sheet_1kk_name(row_name, column_name):
+    yield f"{row_name}-{column_name}"
+
+@pytest.fixture(scope="session")
+def map_sheet_500k_name(map_sheet_1kk_name, square_500k):
+    yield f"{map_sheet_1kk_name}-{square_500k}"
+
+@pytest.fixture(scope="session")
+def map_sheet_200k_name(map_sheet_1kk_name, square_200k):
+    yield f"{map_sheet_1kk_name}-{square_200k}"
+
+@pytest.fixture(scope="session")
+def map_sheet_100k_name(map_sheet_1kk_name, square_100k):
+    yield f"{map_sheet_1kk_name}-{square_100k}"
+
+@pytest.fixture(scope="session")
+def map_sheet_50k_name(map_sheet_100k_name, square_50k):
+    yield f"{map_sheet_100k_name}-{square_50k}"
+
+@pytest.fixture(scope="session")
+def map_sheet_25k_name(map_sheet_50k_name, square_25k):
+    yield f"{map_sheet_50k_name}-{square_25k}"
+
+@pytest.fixture(scope="session")
+def map_sheet_10k_name(map_sheet_25k_name, square_10k):
+    yield f"{map_sheet_25k_name}-{square_10k}"

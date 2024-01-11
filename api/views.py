@@ -38,8 +38,8 @@ from .models import (
     Statuses,
     TaskScales,
     YearQuarter,
-    TimeTrackerStatuses, UserRoles,
 )
+from .choices import UserRoles, TimeTrackerStatuses
 from .serializers import (
     UserCreateSerializer,
     PasswordChangeSerializer,

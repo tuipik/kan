@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'django_filters',
     "drf_standardized_errors",
     "rest_framework_simplejwt.token_blacklist",
+    "map_sheet",
 ]
 
 MIDDLEWARE = [
