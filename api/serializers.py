@@ -10,10 +10,9 @@ from .models import (
     Task,
     Comment,
     TimeTracker,
-    TimeTrackerStatuses,
     Statuses,
-    UserRoles,
 )
+from .choices import UserRoles, TimeTrackerStatuses
 
 from .user_validation.department_validator import DepartmentValidator
 

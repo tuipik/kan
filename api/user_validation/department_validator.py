@@ -1,4 +1,5 @@
-from api.models import UserRoles, Statuses
+from api.models import Statuses
+from api.choices import UserRoles
 
 
 class DepartmentValidator:

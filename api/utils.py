@@ -1,7 +1,8 @@
 from drf_standardized_errors.formatter import ExceptionFormatter
 from drf_standardized_errors.types import ErrorResponse
 
-from api.models import TimeTracker, TimeTrackerStatuses
+from api.models import TimeTracker
+from api.choices import TimeTrackerStatuses
 
 
 class ResponseInfo(object):
