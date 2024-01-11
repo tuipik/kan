@@ -4,7 +4,7 @@ from random import choice, randint
 from django.core.management.base import BaseCommand
 from faker import Faker
 
-from api.CONSTANTS import CYRILLIC_LETTERS_UP
+from api.CONSTANTS import TRAPEZE_500K_AND_50K_CHOICES
 from api.models import (
     Statuses,
     User,
@@ -12,8 +12,8 @@ from api.models import (
     Task,
     TimeTracker,
     Comment,
-    UserRoles,
 )
+from api.choices import UserRoles
 
 
 class Command(BaseCommand):
@@ -75,7 +75,7 @@ class Command(BaseCommand):
                     success = False
                     task_name = ""
                     while not success:
-                        name = f"{choice(['K', 'L', 'M', 'N'])}-{randint(32, 38)}-{randint(1, 144)}-{choice(CYRILLIC_LETTERS_UP)}"
+                        name = f"{choice(['K', 'L', 'M', 'N'])}-{randint(32, 38)}-{randint(1, 144)}-{choice(TRAPEZE_500K_AND_50K_CHOICES)}"
                         if name not in names:
                             names.append(name)
                             task_name = name

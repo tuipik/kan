@@ -1,7 +1,7 @@
 import pytest
 from rest_framework.reverse import reverse
 
-from api.models import UserRoles
+from api.choices import UserRoles
 from conftest import default_user_data, create_user_with_department
 
 
