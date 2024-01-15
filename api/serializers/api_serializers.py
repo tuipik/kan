@@ -445,6 +445,7 @@ class TaskSerializer(serializers.ModelSerializer):
             time_tracker.change_status_done()
             super().save()
             self.instance.start_time_tracker()
+            self.instance.create_log_comment(**comment_data)
             return self.instance
 
         super().save()

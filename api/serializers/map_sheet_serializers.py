@@ -49,7 +49,7 @@ class MapSheetSerializer(serializers.ModelSerializer):
 
         if len(trapezes): # all except 1kk
 
-            scale = self.validated_data.get('scale', self.instance and self.instance.scale)
+            scale = self.validated_data.get('scale') or self.instance.scale
             match scale:
 
                 case 10:
@@ -84,4 +84,4 @@ class MapSheetSerializer(serializers.ModelSerializer):
 
     def save(self, **kwargs):
         updated_kwargs = {**kwargs, **self._get_map_sheet_data()}
-        return super().save(**kwargs, **updated_kwargs)
+        return super().save(**updated_kwargs)
