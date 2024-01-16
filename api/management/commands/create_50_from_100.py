@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from django.core.management.base import BaseCommand
 
 from api.CONSTANTS import TRAPEZE_500K_AND_50K_CHOICES
+
 from api.models import (
     Statuses,
     User,

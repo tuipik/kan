@@ -25,6 +25,7 @@ ROMAN_NUMBERS = [
     "XXI", "XXII", "XXIII", "XXIV", "XXV", "XXVI", "XXVII", "XXVIII", "XXIX", "XXX",
     "XXXI", "XXXII", "XXXIII", "XXXIV", "XXXV", "XXXVI",
 ]
+
 TRAPEZE_100K_MAX = 144
 TRAPEZE_100K_CHOICES = [str(num + 1) for num in range(TRAPEZE_100K_MAX)]
 TRAPEZE_25K_CHOICES = ["а", "б", "в", "г"]
@@ -79,5 +80,9 @@ TASK_NAME_RULES = {
     1000: {
         0: {"rule": ROWS_CHOICES, "error": ROW_ERROR},
         1: {"rule": COLUMNS_CHOICES, "error": COLON_ERROR},
+    },
+    1000: {
+        0: {"rule": ROW_LATIN_LETTERS, "error": ROW_ERROR},
+        1: {"rule": COLONS_NUM_STR_LIST, "error": COLON_ERROR},
     },
 }
