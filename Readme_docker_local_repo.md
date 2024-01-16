@@ -1,42 +1,18 @@
-## **Налаштування Docker Registry для локального сервера**
-
-**Крок 1: Встановлення Docker на машині з репозиторієм**
-**Крок 2: Відкриття docker репозиторія для доступу з інших машин локальної мережі в налаштуваннях файрволу**
-```
-sudo ufw allow 5000/tcp
-sudo ufw reload
-```
-**Крок 3: Створення Docker volume для Registry**
-```
-docker volume create registry_data
-```
-при цьому створиться дана папка за шляхом `./var/lib/docker/volumes/registry_data`
-**Крок 4: Створення конфігураційного файлу `config.yml` для Docker Registry**
-```
-version: 0.1
-log:
-  fields:
-    service: registry
-storage:
-  cache:
-    blobdescriptor: inmemory
-  filesystem:
-    rootdirectory: /var/lib/registry
-http:
-  addr: 0.0.0.0:5000
-  port: 5000
+## **Web for Docker Registry on kan-two.gis**
 
 ```
-**Крок 5: Запуск Docker Registry контейнера**
-Запустіть Docker Registry контейнер, монтувавши створений Docker volume та вказавши конфігураційний файл:
+http://kan-two.gis:8080/
 ```
-docker run -d -p 5000:5000 --restart=always --name registry -v registry_data:/var/lib/registry -v $(pwd)/config.yml:/etc/docker/registry/config.yml registry:2
-```
-**Крок 6: Наявність образів**
+
+# **Push docker images to Docker Registry on kan-two.gis**
+**1. Наявність образів**
+
 На машині звідки будуть пушитись образі в локальний репозиторій мають бути вже збілджені образи
+В ідеалі, має бути docker-compose.main.yml яким будуть спулюватись образи з docker hub і docker-compose.preprod.yml (як в наступному пункті) в якому будуть прописані шляши до Docker Registry on kan-two.gis
 
-**Крок 7: Зміна docker-compose.yml файлу**
-Відредагуйте ваш docker-compose.yml файл для вказання адреси Docker Registry для ваших сервісів:
+**2. Приклад docker-compose.preprod.yml**
+
+Відредагуйте ваш docker-compose.preprod.yml файл для вказання адреси Docker Registry для ваших сервісів:
 ```
 version: '3'
 services:
@@ -44,7 +20,9 @@ services:
     image: kan-two.gis/<image_name:tag>
     # інші налаштування сервісу
 ```
-**Крок 8: daemon.json на всіх машинах, які будуть працювати локальним репозиторієм**
+
+**3. daemon.json на всіх машинах, які будуть працювати з локальним репозиторієм**
+
 створити, або змінити файл `etc/docker/daemon.json` 
 ```
 {
@@ -56,14 +34,109 @@ services:
 }
 ```
 
-**Крок 9: Пуш та пул образів**
-Запустіть скрипт push_docker_images_to_local_registry з кореня проекту для залиття образів у Docker Registry:
+**4. Tag and push образів**
+
+Запустіть скрипт push_docker_images_to_local_registry з кореня проекту для залиття образів у Docker Registry on kan-two.gis:
 ```
-python /kan/push_docker_images_to_local_registry.py --tag --push
+python -m /kan/push_images.py --tag v1.0.1 --push --images front api ALL
+```
+скрипт змінить назви образів відповідно до правил для заливки в Docker Registry та зальє їх туди
+
+**5. Піднімаєм проект на проді чи препроді**
+
+На прод чи препрод сервері мають бути файли nginx.conf, envs/env_prod та docker-compose.preprod.yml (формату як в пункті 2)
+```
+docker-compose -f docker-compose.preprod.yml up -d
+```
+#
+
+# **Налаштування Docker Registry для локального сервера**
+**Крок 1: Встановлення Docker на машині з репозиторієм**
+
+**Крок 2: Відкриття docker репозиторія для доступу з інших машин локальної мережі в налаштуваннях файрволу**
+
+```
+sudo ufw allow 5000/tcp
+sudo ufw allow 8080/tcp
+sudo ufw reload
+```
+**Крок 3: Створення  `docker-compose.yml` для Docker Registry та UI**
+
+```
+version: '3.0'
+services:
+  registry:
+    container_name: registry
+    image: registry:2
+    ports:
+      - 5000:5000
+    restart: always
+    volumes:
+      - ./registry-data:/var/lib/registry
+      - ./config.yml:/etc/docker/registry/config.yml
+    environment:
+      - REGISTRY_STORAGE_DELETE_ENABLED=true
+    networks:
+      - registry-ui-net
+
+  ui:
+    container_name: registry_ui
+    image: joxit/docker-registry-ui:latest
+    ports:
+      - 8080:80
+    restart: always
+    environment:
+      - REGISTRY_URL=http://kan-two.gis:5000
+      - REGISTRY_TITLE=KAN Private Docker Registry
+      - NGINX_PROXY_PASS_URL=http://registry:5000
+      - SINGLE_REGISTRY=true
+      - DELETE_IMAGES=true
+    depends_on:
+      - registry
+    networks:
+      - registry-ui-net
+
+networks:
+  registry-ui-net:
 ```
 
-**Крок 10: Піднімаєм проект на проді чи препроді**
-На прод чи препрод сервері мають бути файли nginx.conf, envs/env_prod та docker-compose.preprod.yml (формату як в пункті Крок 7: Зміна docker-compose.yml файлу)
+**Крок 4: Створення конфігураційного файлу `config.yml` для Docker Registry**
+
 ```
-docker-compose -f docker-compose.preprod.yml up
+version: 0.1
+
+log:
+  level: debug
+  fields:
+    service: registry
+storage:
+  delete:
+    enabled: true
+  cache:
+    blobdescriptor: inmemory
+  filesystem:
+    rootdirectory: /var/lib/registry
+  redirect:
+    disable: true
+http:
+  addr: 0.0.0.0:5000
+  port: 5000
+  headers:
+    X-Content-Type-Options: [nosniff]
+    Access-Control-Allow-Origin: ['http://kan-two.gis:8080']
+    Access-Control-Allow-Methods: ['HEAD', 'GET', 'OPTIONS', 'DELETE']
+    Access-Control-Allow-Headers: ['Authorization', 'Accept']
+    Access-Control-Max-Age: [1728000]
+    Access-Control-Allow-Credentials: [true]
+    Access-Control-Expose-Headers: ['Docker-Content-Digest']
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3
+```
+**Крок 5: Запуск Docker Registry та UI контейнерів**
+
+```
+docker-compose up -d
 ```
