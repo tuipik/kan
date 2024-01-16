@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from django.core.management.base import BaseCommand
 
-from api.CONSTANTS import CYRILLIC_LETTERS_UP
+from api.CONSTANTS import TRAPEZE_500K_AND_50K_CHOICES
 from api.models import (
     Statuses,
     User,
@@ -19,7 +19,7 @@ class Command(BaseCommand):
 
         tasks_100_list = Task.objects.filter(scale=100)
         for task_100 in tasks_100_list:
-            for letter in CYRILLIC_LETTERS_UP:
+            for letter in TRAPEZE_500K_AND_50K_CHOICES:
                 task = Task.objects.create(
                     **{
                         "name": f"{task_100.name}-{letter}",

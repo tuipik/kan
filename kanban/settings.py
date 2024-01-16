@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'django_filters',
     "drf_standardized_errors",
     "rest_framework_simplejwt.token_blacklist",
+    "map_sheet",
 ]
 
 MIDDLEWARE = [
@@ -258,3 +259,6 @@ CELERY_BEAT_SCHEDULE = {
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND")
 CELERY_TIMEZONE = TIME_ZONE
+
+# DATES
+CURRENT_YEAR = datetime.date.today().year

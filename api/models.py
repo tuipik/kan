@@ -230,6 +230,9 @@ class Department(UpdatedModel):
 
 class Task(UpdatedModel):
     name = models.CharField(max_length=255, verbose_name="Назва")
+    map_sheet = models.OneToOneField(
+        "map_sheet.MapSheet", related_name="task", null=True, verbose_name="Аркуш", on_delete=models.CASCADE
+    )
     editing_time_estimate = models.PositiveIntegerField(
         default=0, verbose_name="Час на редагування"
     )

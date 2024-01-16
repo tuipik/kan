@@ -3,8 +3,9 @@ from datetime import datetime
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
+from api.serializers.map_sheet_serializers import MapSheetSerializer
 from kanban import settings
-from .models import (
+from api.models import (
     User,
     Department,
     Task,
@@ -12,9 +13,9 @@ from .models import (
     TimeTracker,
     Statuses,
 )
-from .choices import UserRoles, TimeTrackerStatuses
+from api.choices import UserRoles, TimeTrackerStatuses
 
-from .user_validation.department_validator import DepartmentValidator
+from api.user_validation.department_validator import DepartmentValidator
 
 
 class DepartmentCreateSerializer(serializers.ModelSerializer):
@@ -182,8 +183,11 @@ class InvolvedUsersSerializer(serializers.ModelSerializer):
 
 
 class TaskSerializer(serializers.ModelSerializer):
+
+    MAP_SHEET_REQUIRED_FIELDS = ("scale", "name", "year")
+
     user = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), allow_null=True, many=False, label="Відповідальний"
+        queryset=User.objects.all(), default=None, allow_null=True, many=False, label="Відповідальний"
     )
     user_obj = UserBaseSerializer(source="user", read_only=True)
     involved_users = InvolvedUsersSerializer(many=True, read_only=True)
@@ -204,6 +208,7 @@ class TaskSerializer(serializers.ModelSerializer):
         read_only=True, format=settings.REST_FRAMEWORK["DATETIME_FORMAT"]
     )
     time_trackers = TimeTrackerSerializer(many=True, read_only=True, source="task_time_trackers")
+    map_sheet = MapSheetSerializer(default=None, allow_null=True, read_only=True)
 
     class Meta:
         model = Task
@@ -232,6 +237,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "created",
             "updated",
             "time_trackers",
+            "map_sheet",
         ]
 
     def _check_department_not_verifier(self):
@@ -283,7 +289,7 @@ class TaskSerializer(serializers.ModelSerializer):
         status = self.validated_data.get("status") or (
             task.status if task else None
         )
-        request_user = self.context['request'].user
+        request_user = getattr(self.context.get('request', {}) ,"user", None)
 
         validation_strategy_data = [self.validated_data, task, request_user, status]
         department_validator = DepartmentValidator(*validation_strategy_data)
@@ -355,6 +361,19 @@ class TaskSerializer(serializers.ModelSerializer):
             data["is_log"] = True
         return data
 
+    def _save_map_sheet(self):
+        map_sheet_data = {}
+
+        for field in self.MAP_SHEET_REQUIRED_FIELDS:
+            if validated_field := self.validated_data.get(field):
+                map_sheet_data[field] = validated_field
+
+        map_sheet_serializer = MapSheetSerializer(
+            data=map_sheet_data, instance=getattr(self.instance, 'map_sheet', None), partial=True
+        )
+        map_sheet_serializer.is_valid(raise_exception=True)
+        return map_sheet_serializer.save()
+
     def save(self, **kwargs):
         comment_data = self._create_log_data()
         self.check_user_has_only_one_task_in_progress()
@@ -368,11 +387,21 @@ class TaskSerializer(serializers.ModelSerializer):
             task_scale = self.validated_data.get("scale") or self.instance.scale
             Task.check_name_correspond_to_scale_rule(task_name, task_scale)
 
+        map_sheet = None
+        if any(field in self.validated_data.keys() for field in self.MAP_SHEET_REQUIRED_FIELDS):
+            map_sheet = self._save_map_sheet()
+
         if not self.instance:
-            super().save()
+            map_sheet_kwargs = {}
+            if map_sheet:
+                map_sheet_kwargs['map_sheet'] = map_sheet
+            super().save(**map_sheet_kwargs)
             self.instance.start_time_tracker()
             self.instance.create_log_comment(**comment_data)
             return self.instance
+
+        if map_sheet:
+            self.instance.map_sheet = map_sheet
 
         time_tracker = self.instance.task_time_trackers.get_or_none(
             task__id=self.instance.id, status=TimeTrackerStatuses.IN_PROGRESS
