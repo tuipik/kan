@@ -53,6 +53,7 @@ services:
   redis:
     container_name: kan_redis
     image: redis:7.2.2-alpine
+    restart: always
 
   celery:
     container_name: kan_celery
@@ -60,6 +61,7 @@ services:
       context: .
       dockerfile: Dockerfile.prod
     command: celery -A kanban worker -l info
+    restart: always
     volumes:
       - .:/kan
     env_file:
@@ -73,6 +75,7 @@ services:
       context: .
       dockerfile: Dockerfile.prod
     command: celery -A kanban beat -l info
+    restart: always
     volumes:
       - .:/kan
     env_file:

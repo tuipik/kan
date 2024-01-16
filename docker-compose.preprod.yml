@@ -23,9 +23,20 @@ services:
       - db
       - redis
 
+  front:
+    container_name: kan_front
+    image: kan-two.gis:5000/kan-front:latest
+    env_file:
+      - envs/env_prod
+    ports:
+     - "80:80"
+    restart: always
+    links:
+     - api
+
   nginx:
     container_name: kan_nginx
-    image: kan-two.gis:5000/nginx:1.23.2-alpine
+    image: kan-two.gis:5000/nginx:latest
     restart: always
     ports:
       - "8000:80"
@@ -38,7 +49,7 @@ services:
 
   db:
     container_name: kan_db
-    image: kan-two.gis:5000/postgres:15
+    image: kan-two.gis:5000/postgres:latest
     restart: always
     ports:
       - "5432:5432"
@@ -49,12 +60,14 @@ services:
 
   redis:
     container_name: kan_redis
-    image: kan-two.gis:5000/redis:7.2.2-alpine
+    image: kan-two.gis:5000/redis:latest
+    restart: always
 
   celery:
     container_name: kan_celery
     image: kan-two.gis:5000/kan_celery:latest
     command: celery -A kanban worker -l info
+    restart: always
     env_file:
       - envs/env_prod
     depends_on:
@@ -62,8 +75,9 @@ services:
 
   celery-beat:
     container_name: kan_celery_beat
-    image: kan-two.gis:5000/kan_celery_beat:latest
+    image: kan-two.gis:5000/kan_celery-beat:latest
     command: celery -A kanban beat -l info
+    restart: always
     env_file:
       - envs/env_prod
     depends_on:
