@@ -1,14 +1,19 @@
+import sys
+from unittest import mock
+
 import openpyxl
 
 from api.CONSTANTS import SCALE_RULES_FOR_IMPORT_EXCEL
-from api.models import Department
+from api.models import Department, User
 from api.serializers import TaskSerializer
+from rest_framework.exceptions import ValidationError
 
 
 class TaskImporter:
 
     def __init__(self):
         self.sheet = None
+        self.incorrect_rows = []
         self.list_of_tasks_data = []
 
     def _import_excel_file(self, file):
@@ -30,10 +35,16 @@ class TaskImporter:
             "quarter": self.sheet[row][7].value,
             "department": department.id,
         }
-        TaskSerializer(data=task_data).is_valid(raise_exception=True)
-
-        self.list_of_tasks_data.append(task_data)
-        print(f"{self.sheet[row][0].row} row completed ({self.sheet[row][1].value})")
+        admin_user = User.objects.filter(username='admin').first()
+        mock_context = {
+            "request": mock.MagicMock(
+                user=admin_user,  # Mock a user object
+                method="POST"  # Set the request method to "POST"
+            )
+        }
+        serializer = TaskSerializer(data=task_data, context=mock_context)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
 
     def _parsing_excel_file(self):
         self.counter = 0
@@ -43,21 +54,28 @@ class TaskImporter:
                 break
             try:
                 self._process_row(row)
-            except Exception as e:
-                print(f"Issue with {row=}")
-                for i in range(9):
+            except ValidationError as e:
+                print(f"Error in row {self.sheet[row]}")
+                for index in range(8):
+                    print(f"{self.counter=}")
+                    print(f"field {index + 1} with value {self.sheet[row][index].value}")
+                    raise e
 
-                    print(f"cell{i+1} {self.sheet[row][i].value}")
-                raise e
+        if self.incorrect_rows:
+            sys.stdout.write("\r-----------------------------------------------------\n")
+            sys.stdout.write("Correct the errors below and try again:\n")
+            for inc_row in self.incorrect_rows:
+                sys.stdout.write(f"{inc_row}\n")
+            sys.exit(3)
 
     def _create_tasks_from_list(self):
         serializer = TaskSerializer(many=True, data=self.list_of_tasks_data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        print("--------------------")
-        print(f"{self.counter-1} tasks were added.")
+        sys.stdout.write("------------------------------\n")
+        sys.stdout.write(f"{self.counter-1} tasks were added.\n")
+
     def run(self, file):
         self._import_excel_file(file)
         self._parsing_excel_file()
-        self._create_tasks_from_list()
 
