@@ -88,8 +88,8 @@ SCALE_RULES_FOR_IMPORT_EXCEL = {
     "1:10000": TaskScales.TEN.value,
     "1:25000": TaskScales.TWENTY_FIVE.value,
     "1:50000": TaskScales.FIFTY.value,
-    ":100000": TaskScales.ONE_HUNDRED.value,
-    ":200000": TaskScales.TWO_HUNDRED.value,
-    ":500000": TaskScales.FIVE_HUNDRED.value,
-    ":1000000": TaskScales.ONE_MILLION.value,
+    "1:100000": TaskScales.ONE_HUNDRED.value,
+    "1:200000": TaskScales.TWO_HUNDRED.value,
+    "1:500000": TaskScales.FIVE_HUNDRED.value,
+    "1:1000000": TaskScales.ONE_MILLION.value,
 }
