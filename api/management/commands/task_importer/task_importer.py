@@ -13,8 +13,8 @@ class TaskImporter:
 
     def __init__(self):
         self.sheet = None
-        self.incorrect_rows = []
-        self.list_of_tasks_data = []
+        # self.incorrect_rows = []
+        # self.list_of_tasks_data = []
 
     def _import_excel_file(self, file):
         book = openpyxl.open(file, read_only=True)
@@ -56,24 +56,17 @@ class TaskImporter:
                 self._process_row(row)
             except ValidationError as e:
                 print(f"Error in row {self.sheet[row]}")
+                print(f"{self.counter=}")
                 for index in range(8):
-                    print(f"{self.counter=}")
                     print(f"field {index + 1} with value {self.sheet[row][index].value}")
                     raise e
 
-        if self.incorrect_rows:
-            sys.stdout.write("\r-----------------------------------------------------\n")
-            sys.stdout.write("Correct the errors below and try again:\n")
-            for inc_row in self.incorrect_rows:
-                sys.stdout.write(f"{inc_row}\n")
-            sys.exit(3)
-
-    def _create_tasks_from_list(self):
-        serializer = TaskSerializer(many=True, data=self.list_of_tasks_data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        sys.stdout.write("------------------------------\n")
-        sys.stdout.write(f"{self.counter-1} tasks were added.\n")
+        # if self.incorrect_rows: # Todo Повернутись, коли будуть виправлені валідації в TaskSerializer
+        #     sys.stdout.write("\r-----------------------------------------------------\n")
+        #     sys.stdout.write("Correct the errors below and try again:\n")
+        #     for inc_row in self.incorrect_rows:
+        #         sys.stdout.write(f"{inc_row}\n")
+        #     sys.exit(3)
 
     def run(self, file):
         self._import_excel_file(file)
