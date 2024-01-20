@@ -381,3 +381,5 @@ pip-selfcheck.json
 # End of https://www.toptal.com/developers/gitignore/api/linux,python,pycharm+all,django,venv
 /envs/env_dev
 /envs/env_prod
+
+/task_updates_checked.xlsx

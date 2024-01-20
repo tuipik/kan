@@ -1,5 +1,7 @@
 import string
 
+from api.choices import TaskScales
+
 TASK_NAME_REGEX = {
     #   Розбір regular expression: '\p{L}-\p{N}{2}-\p{N}{1,3}-\p{L}'
     #   \p{L} - будьяка літера
@@ -80,4 +82,14 @@ TASK_NAME_RULES = {
         0: {"rule": ROWS_CHOICES, "error": ROW_ERROR},
         1: {"rule": COLUMNS_CHOICES, "error": COLON_ERROR},
     },
+}
+
+SCALE_RULES_FOR_IMPORT_EXCEL = {
+    "1:10000": TaskScales.TEN.value,
+    "1:25000": TaskScales.TWENTY_FIVE.value,
+    "1:50000": TaskScales.FIFTY.value,
+    "1:100000": TaskScales.ONE_HUNDRED.value,
+    "1:200000": TaskScales.TWO_HUNDRED.value,
+    "1:500000": TaskScales.FIVE_HUNDRED.value,
+    "1:1000000": TaskScales.ONE_MILLION.value,
 }

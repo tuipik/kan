@@ -419,7 +419,7 @@ class TaskSerializer(serializers.ModelSerializer):
                 self.instance.done = None
                 if "user" not in self.validated_data:
                     self.instance.update_user_in_queue_status(status=validated_status)
-                super().save()
+                super().save(**kwargs)
                 self.instance.start_time_tracker()
                 self.instance.create_log_comment(**comment_data)
                 return self.instance
@@ -427,7 +427,7 @@ class TaskSerializer(serializers.ModelSerializer):
             if validated_status != time_tracker.task_status:
                 self._check_user_for_progress_status()
                 time_tracker.change_status_done()
-                super().save()
+                super().save(**kwargs)
                 if validated_status != Statuses.DONE.value:
                     if "user" not in self.validated_data:
                         self.instance.update_user_in_queue_status(
@@ -437,17 +437,17 @@ class TaskSerializer(serializers.ModelSerializer):
                 else:
                     self.instance.done = datetime.now()
                     self.instance.user = None
-                    super().save()
+                    super().save(**kwargs)
                 self.instance.create_log_comment(**comment_data)
                 return self.instance
         if validated_user := self.validated_data.get("user") and not validated_status:
             self._check_user_for_progress_status()
             time_tracker.change_status_done()
-            super().save()
+            super().save(**kwargs)
             self.instance.start_time_tracker()
             self.instance.create_log_comment(**comment_data)
             return self.instance
 
-        super().save()
+        super().save(**kwargs)
         self.instance.create_log_comment(**comment_data)
         return self.instance
