@@ -9,7 +9,7 @@ from kanban.settings import BASE_DIR
 class Command(BaseCommand):
     """Django command to fill up develop db"""
 
-    file = os.path.join(BASE_DIR, "task_updates_checked.xlsx")
+    file = os.path.join(BASE_DIR, "api", "management", "commands", "task_importer", "task_updates_checked.xlsx")
 
     def handle(self, *args, **options):
         self.stdout.write("Start fill up db")
