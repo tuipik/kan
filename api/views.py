@@ -251,7 +251,18 @@ class DepartmentApiViewSet(PermissionPolicyMixin, ResponseModelViewSet):
 
 
 class TaskViewSet(ResponseModelViewSet):
-    queryset = Task.objects.all()
+    queryset = Task.objects\
+        .select_related(
+            #"user",
+            "department"
+        ).prefetch_related(
+            "user",
+        #"user__department",
+        #"user__department__head",
+        #"department",
+            "task_time_trackers",
+            "task_time_trackers__task"
+        ).all()
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_classes = {}

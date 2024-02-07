@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     "drf_standardized_errors",
     "rest_framework_simplejwt.token_blacklist",
     "map_sheet",
+    "debug_toolbar",
 ]
 
 MIDDLEWARE = [
@@ -85,6 +86,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
 ]
 
 ROOT_URLCONF = 'kanban.urls'
@@ -262,3 +264,8 @@ CELERY_TIMEZONE = TIME_ZONE
 
 # DATES
 CURRENT_YEAR = datetime.date.today().year
+
+INTERNAL_IPS = [
+    "127.0.0.1",
+    "localhost:3000",
+]

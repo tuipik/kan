@@ -374,10 +374,14 @@ class TaskSerializer(serializers.ModelSerializer):
         map_sheet_serializer.is_valid(raise_exception=True)
         return map_sheet_serializer.save()
 
-    def save(self, **kwargs):
-        comment_data = self._create_log_data()
+    def validate_user(self, name):
         self.check_user_has_only_one_task_in_progress()
         self._check_user_is_department_member_of_task_department()
+
+    def save(self, **kwargs):
+        comment_data = self._create_log_data()
+        # self.check_user_has_only_one_task_in_progress()
+        # self._check_user_is_department_member_of_task_department()
         self._check_department_not_verifier()
 
         if year := self.validated_data.get("year"):
