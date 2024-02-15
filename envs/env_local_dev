@@ -1,5 +1,8 @@
 DEBUG=1
 SECRET_KEY=foo
 DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1 [::1]
-CELERY_BROKER_URL=redis://localhost:6379
-CELERY_RESULT_BACKEND=redis://localhost:6379
+CELERY_BROKER_URL=redis://redis_dev:6379
+CELERY_RESULT_BACKEND=redis://redis_dev:6379
+REDIS_CLIENT=redis_dev
+
+TZ=Europe/Kyiv

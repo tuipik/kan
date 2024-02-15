@@ -15,6 +15,7 @@ from pathlib import Path
 
 import businesstimedelta
 import holidays as pyholidays
+import redis
 import rest_framework.renderers
 import drf_standardized_errors
 from dotenv import load_dotenv
@@ -74,6 +75,7 @@ INSTALLED_APPS = [
     "drf_standardized_errors",
     "rest_framework_simplejwt.token_blacklist",
     "map_sheet",
+    "debug_toolbar",
 ]
 
 MIDDLEWARE = [
@@ -85,6 +87,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
 ]
 
 ROOT_URLCONF = 'kanban.urls'
@@ -254,11 +257,22 @@ CELERY_BEAT_SCHEDULE = {
         "task": "kanban.tasks.update_task_time_in_progress",
         "schedule": crontab(minute='0', hour='*/1'),
     },
+    "update_cached_task_time_in_progress": {
+        "task": "kanban.tasks.update_cached_task_time_in_progress",
+        "schedule": crontab(minute='0', hour='*/1'),
+    },
 }
 
 CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND")
 CELERY_TIMEZONE = TIME_ZONE
 
+REDIS_CLIENT = redis.Redis(host=os.environ.get("REDIS_CLIENT"), port=6379)
+
 # DATES
 CURRENT_YEAR = datetime.date.today().year
+
+if DEBUG:
+    import socket
+    hostname, _, ips = socket.gethostbyname_ex(socket.gethostname())
+    INTERNAL_IPS = [ip[: ip.rfind(".")] + ".1" for ip in ips] + ["127.0.0.1", "172.17.0.1"]
