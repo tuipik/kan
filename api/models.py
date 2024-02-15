@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, date
 
 import regex
@@ -10,9 +11,16 @@ from django.db.models import Sum
 from rest_framework.exceptions import ValidationError
 
 from api.CONSTANTS import TASK_NAME_REGEX, TASK_NAME_RULES
-from api.choices import UserRoles, TimeTrackerStatuses, Statuses, TaskScales, YearQuarter
+from api.choices import (
+    UserRoles,
+    TimeTrackerStatuses,
+    Statuses,
+    TaskScales,
+    YearQuarter,
+)
 from api.fields import RangeIntegerField
-from kanban.settings import business_hours
+from kanban.celery import app
+from kanban.settings import business_hours, REDIS_CLIENT
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
@@ -173,7 +181,6 @@ class User(AbstractBaseUser, UpdatedModel, PermissionsMixin):
                 }
             )
 
-
     def can_change_task_status(self, status):
         if (
             not self.is_admin
@@ -282,29 +289,82 @@ class Task(UpdatedModel):
         return self.name
 
     @property
+    def _cached_keys_names(self):
+        return {
+            "editing_time_done": f"task-id-{self.id}.editing_time_done",
+            "correcting_time_done": f"task-id-{self.id}.correcting_time_done",
+            "tc_time_done": f"task-id-{self.id}.tc_time_done",
+            "involved_users": f"task-id-{self.id}.involved_users",
+        }
+
+    @staticmethod
+    @app.task(name="save_to_redis")
+    def _save_to_redis(key, value):
+        REDIS_CLIENT.set(key, value)
+
+    def _get_from_redis(self, key):
+        REDIS_CLIENT.get(key)
+        return
+
+    def _get_time_done(self, status):
+        hours = self.task_time_trackers.filter(task_status=status).aggregate(
+            total_hours=Sum("hours")
+        )
+        return hours.get("total_hours") or 0
+
+    @property
     def editing_time_done(self):
-        hours_sum = self.task_time_trackers.filter(
-            task_status=Statuses.EDITING.value
-        ).aggregate(total_hours=Sum("hours"))
-        return hours_sum.get("total_hours") or 0
+        key = self._cached_keys_names.get("editing_time_done")
+        result = REDIS_CLIENT.get(key)
+        if not result:
+            result = self._get_time_done(Statuses.EDITING.value)
+            self._save_to_redis(key=key, value=result)
+        return result
 
     @property
     def correcting_time_done(self):
-        hours_sum = self.task_time_trackers.filter(
-            task_status=Statuses.CORRECTING.value
-        ).aggregate(total_hours=Sum("hours"))
-        return hours_sum.get("total_hours") or 0
+        key = self._cached_keys_names.get("correcting_time_done")
+        result = REDIS_CLIENT.get(key)
+        if not result:
+            result = self._get_time_done(Statuses.CORRECTING.value)
+            self._save_to_redis(key=key, value=result)
+        return result
 
     @property
     def tc_time_done(self):
-        hours_sum = self.task_time_trackers.filter(
-            task_status=Statuses.TC.value
-        ).aggregate(total_hours=Sum("hours"))
-        return hours_sum.get("total_hours") or 0
+        key = self._cached_keys_names.get("tc_time_done")
+        result = REDIS_CLIENT.get(key)
+        if not result:
+            result = self._get_time_done(Statuses.TC.value)
+            self._save_to_redis(key=key, value=result)
+        return result
+
+    def _get_involved_users(self):
+        involved_users = User.objects.filter(
+            user_time_trackers__task_id=self.id
+        ).distinct()
+        return [
+            {
+                "id": user.id,
+                "username": user.username,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "department": user.department.id,
+                "department_name": user.department.name,
+                "role": user.role,
+            } for user in involved_users
+        ]
 
     @property
     def involved_users(self):
-        return User.objects.filter(user_time_trackers__task_id=self.id).distinct()
+        key = self._cached_keys_names.get("involved_users")
+        result = REDIS_CLIENT.get(key)
+        if result:
+            return json.loads(result)
+
+        result = self._get_involved_users()
+        self._save_to_redis(key=key, value=json.dumps(result, ensure_ascii=False))
+        return result
 
     def update_user_in_queue_status(self, status):
         time_trackers = None
@@ -449,7 +509,7 @@ class TimeTracker(UpdatedModel):
             end_time=data.get("end_time"),
             status=TimeTrackerStatuses.DONE,
             task_status=Statuses.EDITING_QUEUE.value,
-            task_department=data.get("task_department")
+            task_department=data.get("task_department"),
         )
 
     def handle_update_time(self, changed_time: str, is_start_time: bool):
@@ -506,7 +566,11 @@ class TimeTracker(UpdatedModel):
                 )
 
             self._create_tracker(
-                data={"start_time": previous_tracker.end_time, "end_time": date_obj, "task_department": previous_tracker.task_department}
+                data={
+                    "start_time": previous_tracker.end_time,
+                    "end_time": date_obj,
+                    "task_department": previous_tracker.task_department,
+                }
             )
             return
 
@@ -533,7 +597,11 @@ class TimeTracker(UpdatedModel):
                     }
                 )
             self._create_tracker(
-                data={"start_time": date_obj, "end_time": next_tracker.start_time, "task_department": next_tracker.task_department}
+                data={
+                    "start_time": date_obj,
+                    "end_time": next_tracker.start_time,
+                    "task_department": next_tracker.task_department,
+                }
             )
             return
 

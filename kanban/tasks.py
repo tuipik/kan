@@ -10,3 +10,11 @@ def update_task_time_in_progress():
 
     result = update_time_trackers_hours()
     logger.info(result)
+
+
+@shared_task
+def update_cached_task_time_in_progress():
+    from api.utils import update_cached_info
+
+    result = update_cached_info()
+    logger.info(result)
