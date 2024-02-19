@@ -20,7 +20,7 @@ from api.choices import (
 )
 from api.fields import RangeIntegerField
 from kanban.celery import app
-from kanban.settings import business_hours, REDIS_CLIENT
+from kanban.settings import business_hours, redis_client
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
@@ -288,23 +288,13 @@ class Task(UpdatedModel):
     def __str__(self):
         return self.name
 
-    @property
-    def _cached_keys_names(self):
-        return {
-            "editing_time_done": f"task-id-{self.id}.editing_time_done",
-            "correcting_time_done": f"task-id-{self.id}.correcting_time_done",
-            "tc_time_done": f"task-id-{self.id}.tc_time_done",
-            "involved_users": f"task-id-{self.id}.involved_users",
-        }
+    def _cached_keys_name(self, field):
+        return f"task-id-{self.id}.{field}"
 
     @staticmethod
     @app.task(name="save_to_redis")
     def _save_to_redis(key, value):
-        REDIS_CLIENT.set(key, value)
-
-    def _get_from_redis(self, key):
-        REDIS_CLIENT.get(key)
-        return
+        redis_client.set(key, value)
 
     def _get_time_done(self, status):
         hours = self.task_time_trackers.filter(task_status=status).aggregate(
@@ -312,32 +302,41 @@ class Task(UpdatedModel):
         )
         return hours.get("total_hours") or 0
 
+    def _get_cached_or_cache(self, cached_key, func, *args, **kwargs):
+        result = redis_client.get(cached_key)
+        if result and cached_key == self._cached_keys_name("involved_users"):
+            return json.loads(result)
+
+        if not result:
+            result = func(*args, **kwargs)
+            self._save_to_redis(
+                key=cached_key, value=json.dumps(result, ensure_ascii=False)
+            )
+        return result
+
     @property
     def editing_time_done(self):
-        key = self._cached_keys_names.get("editing_time_done")
-        result = REDIS_CLIENT.get(key)
-        if not result:
-            result = self._get_time_done(Statuses.EDITING.value)
-            self._save_to_redis(key=key, value=result)
-        return result
+        return self._get_cached_or_cache(
+            cached_key=self._cached_keys_name("editing_time_done"),
+            func=self._get_time_done,
+            status=Statuses.EDITING.value,
+        )
 
     @property
     def correcting_time_done(self):
-        key = self._cached_keys_names.get("correcting_time_done")
-        result = REDIS_CLIENT.get(key)
-        if not result:
-            result = self._get_time_done(Statuses.CORRECTING.value)
-            self._save_to_redis(key=key, value=result)
-        return result
+        return self._get_cached_or_cache(
+            cached_key=self._cached_keys_name("correcting_time_done"),
+            func=self._get_time_done,
+            status=Statuses.CORRECTING.value,
+        )
 
     @property
     def tc_time_done(self):
-        key = self._cached_keys_names.get("tc_time_done")
-        result = REDIS_CLIENT.get(key)
-        if not result:
-            result = self._get_time_done(Statuses.TC.value)
-            self._save_to_redis(key=key, value=result)
-        return result
+        return self._get_cached_or_cache(
+            cached_key=self._cached_keys_name("tc_time_done"),
+            func=self._get_time_done,
+            status=Statuses.TC.value,
+        )
 
     def _get_involved_users(self):
         involved_users = User.objects.filter(
@@ -352,19 +351,16 @@ class Task(UpdatedModel):
                 "department": user.department.id,
                 "department_name": user.department.name,
                 "role": user.role,
-            } for user in involved_users
+            }
+            for user in involved_users
         ]
 
     @property
     def involved_users(self):
-        key = self._cached_keys_names.get("involved_users")
-        result = REDIS_CLIENT.get(key)
-        if result:
-            return json.loads(result)
-
-        result = self._get_involved_users()
-        self._save_to_redis(key=key, value=json.dumps(result, ensure_ascii=False))
-        return result
+        return self._get_cached_or_cache(
+            cached_key=self._cached_keys_name("involved_users"),
+            func=self._get_involved_users,
+        )
 
     def update_user_in_queue_status(self, status):
         time_trackers = None
@@ -408,7 +404,12 @@ class Task(UpdatedModel):
         if not TimeTracker.objects.filter(**data).count():
             del data["status"]
             data["start_time"] = datetime.now()
-            return TimeTracker.objects.create(**data)
+            created = TimeTracker.objects.create(**data)
+            self._save_to_redis(
+                self._cached_keys_name("involved_users"),
+                json.dumps(self._get_involved_users(), ensure_ascii=False),
+            )
+            return created
 
     def create_log_comment(self, log_user, log_text, is_log):
         return Comment.objects.create(

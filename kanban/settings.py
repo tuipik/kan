@@ -267,7 +267,7 @@ CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL")
 CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND")
 CELERY_TIMEZONE = TIME_ZONE
 
-REDIS_CLIENT = redis.Redis(host=os.environ.get("REDIS_CLIENT"), port=6379)
+redis_client = redis.Redis(host=os.environ.get("REDIS_CLIENT"), port=6379)
 
 # DATES
 CURRENT_YEAR = datetime.date.today().year

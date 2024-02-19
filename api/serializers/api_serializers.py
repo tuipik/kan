@@ -378,11 +378,6 @@ class TaskSerializer(serializers.ModelSerializer):
         if map_sheet:
             self.instance.map_sheet = map_sheet
 
-        if validated_user := self.validated_data.get("user"):
-            self.instance._save_to_redis(
-                self.instance._cached_keys_names.get("involved_users"),
-                json.dumps(self.instance._get_involved_users(), ensure_ascii=False),
-            )
         time_tracker = self.instance.task_time_trackers.get_or_none(
             task__id=self.instance.id, status=TimeTrackerStatuses.IN_PROGRESS
         )
@@ -420,7 +415,7 @@ class TaskSerializer(serializers.ModelSerializer):
                     super().save(**kwargs)
                 self.instance.create_log_comment(**comment_data)
                 return self.instance
-        if validated_user and not validated_status:
+        if self.validated_data.get("user") and not validated_status:
             self._check_user_for_progress_status()
             time_tracker.change_status_done()
             super().save(**kwargs)
