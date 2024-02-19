@@ -1,4 +1,5 @@
 from datetime import datetime
+import json
 
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -165,23 +166,6 @@ class TimeTrackerSerializer(serializers.ModelSerializer):
         read_only_fields = ("hours",)
 
 
-class InvolvedUsersSerializer(serializers.ModelSerializer):
-    department = serializers.PrimaryKeyRelatedField(read_only=True)
-    department_name = serializers.CharField(source="department", read_only=True)
-
-    class Meta:
-        model = User
-        fields = [
-            "id",
-            "username",
-            "first_name",
-            "last_name",
-            "department",
-            "department_name",
-            "role",
-        ]
-
-
 class TaskSerializer(serializers.ModelSerializer):
 
     MAP_SHEET_REQUIRED_FIELDS = ("scale", "name", "year")
@@ -190,7 +174,6 @@ class TaskSerializer(serializers.ModelSerializer):
         queryset=User.objects.all(), default=None, allow_null=True, many=False, label="Відповідальний"
     )
     user_obj = UserBaseSerializer(source="user", read_only=True)
-    involved_users = InvolvedUsersSerializer(many=True, read_only=True)
     department_obj = DepartmentSerializer(source="department", read_only=True)
     quarter_display_value = serializers.CharField(
         source="get_quarter_display", read_only=True
@@ -244,10 +227,9 @@ class TaskSerializer(serializers.ModelSerializer):
         department = self.validated_data.get("department")
         if department and department.is_verifier:
             raise ValidationError(
-                {
-                    "department": f"Задача не може належати перевіряючему відділу."
-                }
+                {"department": f"Задача не може належати перевіряючему відділу."}
             )
+
     def check_user_has_only_one_task_in_progress(self):
         status = self.validated_data.get("status")
         user = self.validated_data.get("user") or (
@@ -286,10 +268,8 @@ class TaskSerializer(serializers.ModelSerializer):
             task.user if task and task.user and task.user.role != UserRoles.VERIFIER.value else None
         )
         department = self.validated_data.get("department", None)
-        status = self.validated_data.get("status") or (
-            task.status if task else None
-        )
-        request_user = getattr(self.context.get('request', {}) ,"user", None)
+        status = self.validated_data.get("status") or (task.status if task else None)
+        request_user = getattr(self.context.get("request", {}), "user", None)
 
         validation_strategy_data = [self.validated_data, task, request_user, status]
         department_validator = DepartmentValidator(*validation_strategy_data)
@@ -323,14 +303,9 @@ class TaskSerializer(serializers.ModelSerializer):
                     }
                 )
 
-        if (
-            not user
-            and task
-            and department
-        ):
+        if not user and task and department:
             if task.user and task.user.department_id != department.id:
                 raise ValidationError(
-
                     {
                         "user": "Не можна змінити відділ і залишити відповідальним користувача з іншого відділу"
                     }
@@ -343,9 +318,9 @@ class TaskSerializer(serializers.ModelSerializer):
             "is_log": False,
         }
         if self.context["request"].method == "POST":
-            data[
-                "log_text"
-            ] = f'Створено задачу для {self.validated_data.get("name", "")}'
+            data["log_text"] = (
+                f'Створено задачу для {self.validated_data.get("name", "")}'
+            )
             data["is_log"] = True
         elif self.context["request"].method in ["PUT", "PATCH"]:
             change_list = []
@@ -394,7 +369,7 @@ class TaskSerializer(serializers.ModelSerializer):
         if not self.instance:
             map_sheet_kwargs = {}
             if map_sheet:
-                map_sheet_kwargs['map_sheet'] = map_sheet
+                map_sheet_kwargs["map_sheet"] = map_sheet
             super().save(**map_sheet_kwargs)
             self.instance.start_time_tracker()
             self.instance.create_log_comment(**comment_data)
@@ -440,7 +415,7 @@ class TaskSerializer(serializers.ModelSerializer):
                     super().save(**kwargs)
                 self.instance.create_log_comment(**comment_data)
                 return self.instance
-        if validated_user := self.validated_data.get("user") and not validated_status:
+        if self.validated_data.get("user") and not validated_status:
             self._check_user_for_progress_status()
             time_tracker.change_status_done()
             super().save(**kwargs)

@@ -251,14 +251,18 @@ class DepartmentApiViewSet(PermissionPolicyMixin, ResponseModelViewSet):
 
 
 class TaskViewSet(ResponseModelViewSet):
-    queryset = Task.objects.all()
+    queryset = (
+        Task.objects.select_related("user", "department", "map_sheet")
+        .prefetch_related("user__department__head", "task_time_trackers__task")
+        .all()
+    )
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_classes = {}
     default_serializer_class = TaskSerializer
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = TaskFilter
-    ordering_fields = '__all__'
+    ordering_fields = "__all__"
 
     def update(self, request, *args, **kwargs):
 
@@ -337,7 +341,7 @@ class TimeTrackerViewSet(PermissionPolicyMixin, ResponseModelViewSet):
 
 
 class CommentViewSet(ResponseModelViewSet):
-    queryset = Comment.objects.all()
+    queryset = Comment.objects.select_related("user").all()
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated, OwnerOrAdminOrReadOnly]
     serializer_classes = {}

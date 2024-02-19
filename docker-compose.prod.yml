@@ -54,12 +54,19 @@ services:
     container_name: kan_redis
     image: redis:7.2.2-alpine
 
+    restart: always
+    ports:
+      - "6379:6379"
+    env_file:
+      - envs/env_prod
+
   celery:
     container_name: kan_celery
     build:
       context: .
       dockerfile: Dockerfile.prod
     command: celery -A kanban worker -l info
+    restart: always
     volumes:
       - .:/kan
     env_file:
@@ -73,6 +80,7 @@ services:
       context: .
       dockerfile: Dockerfile.prod
     command: celery -A kanban beat -l info
+    restart: always
     volumes:
       - .:/kan
     env_file:

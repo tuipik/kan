@@ -50,11 +50,17 @@ services:
   redis:
     container_name: kan_redis
     image: kan-two.gis:5000/redis:7.2.2-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    env_file:
+      - envs/env_dev
 
   celery:
     container_name: kan_celery
     image: kan-two.gis:5000/kan_celery:latest
     command: celery -A kanban worker -l info
+    restart: always
     env_file:
       - envs/env_prod
     depends_on:
@@ -64,6 +70,7 @@ services:
     container_name: kan_celery_beat
     image: kan-two.gis:5000/kan_celery_beat:latest
     command: celery -A kanban beat -l info
+    restart: always
     env_file:
       - envs/env_prod
     depends_on:

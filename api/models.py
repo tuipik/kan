@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, date
 
 import regex
@@ -10,9 +11,16 @@ from django.db.models import Sum
 from rest_framework.exceptions import ValidationError
 
 from api.CONSTANTS import TASK_NAME_REGEX, TASK_NAME_RULES
-from api.choices import UserRoles, TimeTrackerStatuses, Statuses, TaskScales, YearQuarter
+from api.choices import (
+    UserRoles,
+    TimeTrackerStatuses,
+    Statuses,
+    TaskScales,
+    YearQuarter,
+)
 from api.fields import RangeIntegerField
-from kanban.settings import business_hours
+from kanban.celery import app
+from kanban.settings import business_hours, redis_client
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
@@ -173,7 +181,6 @@ class User(AbstractBaseUser, UpdatedModel, PermissionsMixin):
                 }
             )
 
-
     def can_change_task_status(self, status):
         if (
             not self.is_admin
@@ -281,30 +288,79 @@ class Task(UpdatedModel):
     def __str__(self):
         return self.name
 
+    def _cached_keys_name(self, field):
+        return f"task-id-{self.id}.{field}"
+
+    @staticmethod
+    @app.task(name="save_to_redis")
+    def _save_to_redis(key, value):
+        redis_client.set(key, value)
+
+    def _get_time_done(self, status):
+        hours = self.task_time_trackers.filter(task_status=status).aggregate(
+            total_hours=Sum("hours")
+        )
+        return hours.get("total_hours") or 0
+
+    def _get_cached_or_cache(self, cached_key, func, *args, **kwargs):
+        result = redis_client.get(cached_key)
+        if result and cached_key == self._cached_keys_name("involved_users"):
+            return json.loads(result)
+
+        if not result:
+            result = func(*args, **kwargs)
+            self._save_to_redis(
+                key=cached_key, value=json.dumps(result, ensure_ascii=False)
+            )
+        return result
+
     @property
     def editing_time_done(self):
-        hours_sum = self.task_time_trackers.filter(
-            task_status=Statuses.EDITING.value
-        ).aggregate(total_hours=Sum("hours"))
-        return hours_sum.get("total_hours") or 0
+        return self._get_cached_or_cache(
+            cached_key=self._cached_keys_name("editing_time_done"),
+            func=self._get_time_done,
+            status=Statuses.EDITING.value,
+        )
 
     @property
     def correcting_time_done(self):
-        hours_sum = self.task_time_trackers.filter(
-            task_status=Statuses.CORRECTING.value
-        ).aggregate(total_hours=Sum("hours"))
-        return hours_sum.get("total_hours") or 0
+        return self._get_cached_or_cache(
+            cached_key=self._cached_keys_name("correcting_time_done"),
+            func=self._get_time_done,
+            status=Statuses.CORRECTING.value,
+        )
 
     @property
     def tc_time_done(self):
-        hours_sum = self.task_time_trackers.filter(
-            task_status=Statuses.TC.value
-        ).aggregate(total_hours=Sum("hours"))
-        return hours_sum.get("total_hours") or 0
+        return self._get_cached_or_cache(
+            cached_key=self._cached_keys_name("tc_time_done"),
+            func=self._get_time_done,
+            status=Statuses.TC.value,
+        )
+
+    def _get_involved_users(self):
+        involved_users = User.objects.filter(
+            user_time_trackers__task_id=self.id
+        ).distinct()
+        return [
+            {
+                "id": user.id,
+                "username": user.username,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "department": user.department.id,
+                "department_name": user.department.name,
+                "role": user.role,
+            }
+            for user in involved_users
+        ]
 
     @property
     def involved_users(self):
-        return User.objects.filter(user_time_trackers__task_id=self.id).distinct()
+        return self._get_cached_or_cache(
+            cached_key=self._cached_keys_name("involved_users"),
+            func=self._get_involved_users,
+        )
 
     def update_user_in_queue_status(self, status):
         time_trackers = None
@@ -348,7 +404,12 @@ class Task(UpdatedModel):
         if not TimeTracker.objects.filter(**data).count():
             del data["status"]
             data["start_time"] = datetime.now()
-            return TimeTracker.objects.create(**data)
+            created = TimeTracker.objects.create(**data)
+            self._save_to_redis(
+                self._cached_keys_name("involved_users"),
+                json.dumps(self._get_involved_users(), ensure_ascii=False),
+            )
+            return created
 
     def create_log_comment(self, log_user, log_text, is_log):
         return Comment.objects.create(
@@ -449,7 +510,7 @@ class TimeTracker(UpdatedModel):
             end_time=data.get("end_time"),
             status=TimeTrackerStatuses.DONE,
             task_status=Statuses.EDITING_QUEUE.value,
-            task_department=data.get("task_department")
+            task_department=data.get("task_department"),
         )
 
     def handle_update_time(self, changed_time: str, is_start_time: bool):
@@ -506,7 +567,11 @@ class TimeTracker(UpdatedModel):
                 )
 
             self._create_tracker(
-                data={"start_time": previous_tracker.end_time, "end_time": date_obj, "task_department": previous_tracker.task_department}
+                data={
+                    "start_time": previous_tracker.end_time,
+                    "end_time": date_obj,
+                    "task_department": previous_tracker.task_department,
+                }
             )
             return
 
@@ -533,7 +598,11 @@ class TimeTracker(UpdatedModel):
                     }
                 )
             self._create_tracker(
-                data={"start_time": date_obj, "end_time": next_tracker.start_time, "task_department": next_tracker.task_department}
+                data={
+                    "start_time": date_obj,
+                    "end_time": next_tracker.start_time,
+                    "task_department": next_tracker.task_department,
+                }
             )
             return
 
