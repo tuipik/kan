@@ -9,16 +9,13 @@ services:
   api:
     container_name: kan_api
     restart: always
-    build:
-      context: .
-      dockerfile: Dockerfile.prod
+    image: kan-two.gis:5000/kan-api
     command:
           sh -c "python manage.py wait_for_db &&
                  python manage.py collectstatic --clear --noinput &&
                  python manage.py migrate &&
                  gunicorn kanban.wsgi:application --bind 0.0.0.0:8080 --workers 3 --access-logfile /var/log/access.log --forwarded-allow-ips="*" --error-logfile /var/log/error.log"
     volumes:
-      - .:/kan
       - static_volume:/kan/staticfiles
     env_file:
       - envs/env_prod
@@ -26,9 +23,20 @@ services:
       - db
       - redis
 
+  front:
+    container_name: kan_front
+    image: kan-two.gis:5000/kan-front-prod
+    env_file:
+      - envs/env_prod
+    ports:
+     - "80:80"
+    restart: always
+    links:
+     - api
+
   nginx:
     container_name: kan_nginx
-    image: nginx:1.23.2-alpine
+    image: kan-two.gis:5000/nginx
     restart: always
     ports:
       - "8000:80"
@@ -41,7 +49,7 @@ services:
 
   db:
     container_name: kan_db
-    image: postgres:15
+    image: kan-two.gis:5000/postgres
     restart: always
     ports:
       - "5432:5432"
@@ -52,8 +60,7 @@ services:
 
   redis:
     container_name: kan_redis
-    image: redis:7.2.2-alpine
-
+    image: kan-two.gis:5000/redis
     restart: always
     ports:
       - "6379:6379"
@@ -62,13 +69,9 @@ services:
 
   celery:
     container_name: kan_celery
-    build:
-      context: .
-      dockerfile: Dockerfile.prod
+    image: kan-two.gis:5000/kan-celery
     command: celery -A kanban worker -l info
     restart: always
-    volumes:
-      - .:/kan
     env_file:
       - envs/env_prod
     depends_on:
@@ -76,13 +79,9 @@ services:
 
   celery-beat:
     container_name: kan_celery_beat
-    build:
-      context: .
-      dockerfile: Dockerfile.prod
+    image: kan-two.gis:5000/kan-celery-beat
     command: celery -A kanban beat -l info
     restart: always
-    volumes:
-      - .:/kan
     env_file:
       - envs/env_prod
     depends_on:
@@ -90,7 +89,7 @@ services:
 
   pgbackups:
     container_name: kan_backup
-    image: prodrigestivill/postgres-backup-local
+    image: kan-two.gis:5000/prodrigestivill/postgres-backup-local
     restart: always
     volumes:
       - ${HOME}/kan_db_backups:/backups
