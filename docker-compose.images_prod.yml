@@ -1,0 +1,123 @@
+version: '3.10'
+
+volumes:
+  postgres_data:
+  kan_db_backups:
+  static_volume:
+
+services:
+  api:
+    container_name: kan_api
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    command:
+          sh -c "python manage.py wait_for_db &&
+                 python manage.py collectstatic --clear --noinput &&
+                 python manage.py migrate &&
+                 gunicorn kanban.wsgi:application --bind 0.0.0.0:8080 --workers 3 --access-logfile /var/log/access.log --forwarded-allow-ips="*" --error-logfile /var/log/error.log"
+    volumes:
+      - .:/kan
+      - static_volume:/kan/staticfiles
+    env_file:
+      - envs/env_prod
+    depends_on:
+      - db
+      - redis
+
+  front:
+    container_name: kan_front
+    restart: always
+    build:
+      context: ../kan_front
+      dockerfile: Dockerfile
+      args:
+        - api_base_url=http://kan.gis:8000/api/v1/
+    image: kan-front:prod
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+
+  nginx:
+    container_name: kan_nginx
+    image: nginx:1.23.2-alpine
+    restart: always
+    ports:
+      - "8000:80"
+    volumes:
+      - static_volume:/var/www/static
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - api
+    command: ["nginx", "-g", "daemon off;"]
+
+  db:
+    container_name: kan_db
+    image: postgres:15
+    restart: always
+    ports:
+      - "5432:5432"
+    volumes:
+      - ${HOME}/postgres_data:/var/lib/postgresql/data/
+    env_file:
+      - envs/env_prod
+
+  redis:
+    container_name: kan_redis
+    image: redis:7.2.2-alpine
+
+    restart: always
+    ports:
+      - "6379:6379"
+    env_file:
+      - envs/env_prod
+
+  celery:
+    container_name: kan_celery
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    command: celery -A kanban worker -l info
+    restart: always
+    volumes:
+      - .:/kan
+    env_file:
+      - envs/env_prod
+    depends_on:
+      - redis
+
+  celery-beat:
+    container_name: kan_celery_beat
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    command: celery -A kanban beat -l info
+    restart: always
+    volumes:
+      - .:/kan
+    env_file:
+      - envs/env_prod
+    depends_on:
+      - redis
+
+  pgbackups:
+    container_name: kan_backup
+    image: prodrigestivill/postgres-backup-local
+    restart: always
+    volumes:
+      - ${HOME}/kan_db_backups:/backups
+    links:
+      - db:db
+    depends_on:
+      - db
+    env_file:
+      - envs/env_prod
+    environment:
+      - POSTGRES_EXTRA_OPTS=-Z9 --schema=public --blobs
+      - SCHEDULE=@daily
+      - BACKUP_KEEP_DAYS=7
+      - BACKUP_KEEP_WEEKS=4
+      - BACKUP_KEEP_MONTHS=6
+      - HEALTHCHECK_PORT=81
