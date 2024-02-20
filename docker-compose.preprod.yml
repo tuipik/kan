@@ -9,7 +9,7 @@ services:
   api:
     container_name: kan_api
     restart: always
-    image: kan-two.gis:5000/kan-api:latest
+    image: kan-two.gis:5000/kan-api
     command:
           sh -c "python manage.py wait_for_db &&
                  python manage.py collectstatic --clear --noinput &&
@@ -25,7 +25,7 @@ services:
 
   front:
     container_name: kan_front
-    image: kan-two.gis:5000/kan-front:preprod
+    image: kan-two.gis:5000/kan-front-preprod
     env_file:
       - envs/env_prod
     ports:
@@ -36,7 +36,7 @@ services:
 
   nginx:
     container_name: kan_nginx
-    image: kan-two.gis:5000/nginx:latest
+    image: kan-two.gis:5000/nginx
     restart: always
     ports:
       - "8000:80"
@@ -49,7 +49,7 @@ services:
 
   db:
     container_name: kan_db
-    image: kan-two.gis:5000/postgres:latest
+    image: kan-two.gis:5000/postgres
     restart: always
     ports:
       - "5432:5432"
@@ -60,7 +60,7 @@ services:
 
   redis:
     container_name: kan_redis
-    image: kan-two.gis:5000/redis:latest
+    image: kan-two.gis:5000/redis
     restart: always
     ports:
       - "6379:6379"
@@ -69,7 +69,7 @@ services:
 
   celery:
     container_name: kan_celery
-    image: kan-two.gis:5000/kan-celery:latest
+    image: kan-two.gis:5000/kan-celery
     command: celery -A kanban worker -l info
     restart: always
     env_file:
@@ -79,7 +79,7 @@ services:
 
   celery-beat:
     container_name: kan_celery_beat
-    image: kan-two.gis:5000/kan-celery-beat:latest
+    image: kan-two.gis:5000/kan-celery-beat
     command: celery -A kanban beat -l info
     restart: always
     env_file:

@@ -3,14 +3,14 @@ import sys
 import docker
 
 KAN_IMAGES = {
-    "front_prod": "kan-front:prod",
-    "front_preprod": "kan-front:preprod",
+    "front_prod": "kan-front-prod:latest",
+    "front_preprod": "kan-front-preprod:latest",
     "api": "kan-api:latest",
-    "celery-beat": "kan-celery-beat",
-    "celery": "kan-celery",
+    "celery-beat": "kan-celery-beat:latest",
+    "celery": "kan-celery:latest",
     "redis": "redis:7.2.2-alpine",
     "nginx": "nginx:1.23.2-alpine",
-    "backup": "prodrigestivill/postgres-backup-local:latest",
+    "backup": "prodrigestivill/postgres-backup-local:16",
     "postgres": "postgres:15",
 }
 image_choices = ["ALL"]
@@ -29,10 +29,6 @@ class LocalRegistryDockerImagesHandler:
     def tag_images(self, tag):
         for choice in self.choices:
             tag_names = {tag, "latest"}
-            if choice == "front_prod":
-                tag_names.add("prod")
-            elif choice == "front_preprod":
-                tag_names.add("preprod")
             splitted_image_name = KAN_IMAGES[choice].split(":")
             if len(splitted_image_name) > 1:
                 tag_names.add(splitted_image_name[1])

@@ -33,8 +33,8 @@ services:
       context: ../kan_front
       dockerfile: Dockerfile
       args:
-        - api_base_url=http://preprod.gis:8000/api/v1/
-    image: kan-front:preprod
+        - api_base_url=http://kan.gis:8000/api/v1/
+    image: kan-front-prod
     ports:
       - "80:80"
     depends_on:
@@ -67,7 +67,6 @@ services:
   redis:
     container_name: kan_redis
     image: redis:7.2.2-alpine
-
     restart: always
     ports:
       - "6379:6379"
@@ -104,7 +103,7 @@ services:
 
   pgbackups:
     container_name: kan_backup
-    image: prodrigestivill/postgres-backup-local
+    image: prodrigestivill/postgres-backup-local:16
     restart: always
     volumes:
       - ${HOME}/kan_db_backups:/backups
