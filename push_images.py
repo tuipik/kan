@@ -11,7 +11,7 @@ KAN_IMAGES = {
     "redis": "redis:7.2.2-alpine",
     "nginx": "nginx:1.23.2-alpine",
     "backup": "prodrigestivill/postgres-backup-local:16",
-    "postgres": "postgres:15",
+    "postgres": "postgres:15.6",
 }
 image_choices = ["ALL"]
 image_choices.extend(list(KAN_IMAGES.keys()))
