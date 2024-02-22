@@ -36,17 +36,18 @@ services:
 
 **4. Оновлюємо/створюємо образи**
 ```
-docker compose -f docker-compose.images_prod.yml up -d --build
-docker compose -f docker-compose.images_prod.yml stop
-docker compose -f docker-compose.images_preprod.yml up -d --build
-docker compose -f docker-compose.images_preprod.yml stop
+docker compose -f docker-compose.build_prod.yml up -d --build
+docker compose -f docker-compose.build_prod.yml stop
+docker compose -f docker-compose.build_preprod.yml up -d --build
+docker compose -f docker-compose.build_preprod.yml stop
 ```
 
 **5. Tag and push образів**
 
-Запустіть скрипт `push_mages.py` з кореня проекту для залиття образів у Docker Registry on kan-two.gis:
+Запустіть скрипт `push_images.py` з кореня проекту для залиття образів у Docker Registry on kan-two.gis:
 ```
-python -m /kan/push_images.py --tag v1.0.1 --push --images front_prod front_preprod api ALL
+python -m /kan/push_images.py --tag <commit hash> --push --images front_prod front_preprod api ALL
+python -m /kan/push_images.py --tag <commit hash> --push --images api celery-beat celery redis nginx backup postgres
 ```
 скрипт змінить назви образів відповідно до правил для заливки в Docker Registry та зальє їх туди
 
