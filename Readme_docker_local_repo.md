@@ -55,6 +55,7 @@ python -m /kan/push_images.py --tag <commit hash> --push --images api celery-bea
 
 На прод чи препрод сервері мають бути файли nginx.conf, envs/env_prod та docker-compose.preprod.yml (формату як в пункті 2)
 ```
+docker-compose -f docker-compose.preprod.yml pull
 docker-compose -f docker-compose.preprod.yml up -d
 ```
 #

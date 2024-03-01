@@ -19,8 +19,8 @@ from api.choices import (
     YearQuarter,
 )
 from api.fields import RangeIntegerField
-from kanban.celery import app
-from kanban.settings import business_hours, redis_client
+from kanban.cache_cli import cache_connection
+from kanban.settings import business_hours
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
@@ -291,11 +291,6 @@ class Task(UpdatedModel):
     def _cached_keys_name(self, field):
         return f"task-id-{self.id}.{field}"
 
-    @staticmethod
-    @app.task(name="save_to_redis")
-    def _save_to_redis(key, value):
-        redis_client.set(key, value)
-
     def _get_time_done(self, status):
         hours = self.task_time_trackers.filter(task_status=status).aggregate(
             total_hours=Sum("hours")
@@ -303,15 +298,20 @@ class Task(UpdatedModel):
         return hours.get("total_hours") or 0
 
     def _get_cached_or_cache(self, cached_key, func, *args, **kwargs):
-        result = redis_client.get(cached_key)
+        if cache_connection.check_health():
+            result = cache_connection.get(cached_key)
+        else:
+            result = None
+
         if result and cached_key == self._cached_keys_name("involved_users"):
             return json.loads(result)
 
         if not result:
             result = func(*args, **kwargs)
-            self._save_to_redis(
-                key=cached_key, value=json.dumps(result, ensure_ascii=False)
-            )
+            if cache_connection.check_health():
+                cache_connection.set(
+                    key=cached_key, value=json.dumps(result, ensure_ascii=False)
+                )
         return result
 
     @property
@@ -405,7 +405,7 @@ class Task(UpdatedModel):
             del data["status"]
             data["start_time"] = datetime.now()
             created = TimeTracker.objects.create(**data)
-            self._save_to_redis(
+            cache_connection.set(
                 self._cached_keys_name("involved_users"),
                 json.dumps(self._get_involved_users(), ensure_ascii=False),
             )

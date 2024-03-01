@@ -5,7 +5,8 @@ from drf_standardized_errors.types import ErrorResponse
 
 from api.models import TimeTracker, Task
 from api.choices import TimeTrackerStatuses, Statuses
-from kanban.settings import redis_client, CURRENT_YEAR
+from kanban.cache_cli import cache_connection
+from kanban.settings import CURRENT_YEAR
 
 
 class ResponseInfo(object):
@@ -49,19 +50,19 @@ def update_cached_info():
     result = []
     if tasks:
         for task in tasks:
-            redis_client.set(
+            cache_connection.set(
                 task._cached_keys_name('editing_time_done'),
                 task._get_time_done(Statuses.EDITING.value)
             )
-            redis_client.set(
+            cache_connection.set(
                 task._cached_keys_name('correcting_time_done'),
                 task._get_time_done(Statuses.CORRECTING.value)
             )
-            redis_client.set(
+            cache_connection.set(
                 task._cached_keys_name('tc_time_done'),
                 task._get_time_done(Statuses.TC.value)
             )
-            redis_client.set(
+            cache_connection.set(
                 task._cached_keys_name('involved_users'),
                 json.dumps(task._get_involved_users(), ensure_ascii=False)
             )
