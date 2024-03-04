@@ -19,7 +19,7 @@ from api.choices import (
     YearQuarter,
 )
 from api.fields import RangeIntegerField
-from kanban.cache_cli import cache_connection
+from kanban.cache_service import cache_service
 from kanban.settings import business_hours
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -298,8 +298,8 @@ class Task(UpdatedModel):
         return hours.get("total_hours") or 0
 
     def _get_cached_or_cache(self, cached_key, func, *args, **kwargs):
-        if cache_connection.check_health():
-            result = cache_connection.get(cached_key)
+        if cache_service.check_health():
+            result = cache_service.get(cached_key)
         else:
             result = None
 
@@ -308,8 +308,8 @@ class Task(UpdatedModel):
 
         if not result:
             result = func(*args, **kwargs)
-            if cache_connection.check_health():
-                cache_connection.set(
+            if cache_service.check_health():
+                cache_service.set(
                     key=cached_key, value=json.dumps(result, ensure_ascii=False)
                 )
         return result
@@ -405,7 +405,7 @@ class Task(UpdatedModel):
             del data["status"]
             data["start_time"] = datetime.now()
             created = TimeTracker.objects.create(**data)
-            cache_connection.set(
+            cache_service.set(
                 self._cached_keys_name("involved_users"),
                 json.dumps(self._get_involved_users(), ensure_ascii=False),
             )

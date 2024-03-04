@@ -1,12 +1,21 @@
 from typing import Generator, Any
+from unittest.mock import patch, Mock
 
 import pytest
 
 from rest_framework.test import APIClient
 
-from api.CONSTANTS import ROWS_CHOICES, COLUMNS_CHOICES, TRAPEZE_500K_AND_50K_CHOICES, ROMAN_NUMBERS, \
-    TRAPEZE_100K_CHOICES, TRAPEZE_25K_CHOICES, TRAPEZE_10K_CHOICES
+from api.CONSTANTS import (
+    ROWS_CHOICES,
+    COLUMNS_CHOICES,
+    TRAPEZE_500K_AND_50K_CHOICES,
+    ROMAN_NUMBERS,
+    TRAPEZE_100K_CHOICES,
+    TRAPEZE_25K_CHOICES,
+    TRAPEZE_10K_CHOICES,
+)
 from api.models import User, Department, Task, TimeTracker, Statuses, Comment
+from kanban.cache_service import RedisCacheService
 from map_sheet.models import MapSheet
 
 
@@ -26,7 +35,7 @@ def super_user() -> User:
     return User.objects.create_superuser(**data)
 
 
-def default_user_data(num, roles:list) -> Generator[dict[str, str], Any, None]:
+def default_user_data(num, roles: list) -> Generator[dict[str, str], Any, None]:
     counter = 0
     while True:
         counter += 1
@@ -39,7 +48,7 @@ def default_user_data(num, roles:list) -> Generator[dict[str, str], Any, None]:
             "password": "default_pass",
             "password2": "default_pass",
             "department": "",
-            "role": roles[counter-1]
+            "role": roles[counter - 1],
         }
 
 
@@ -91,11 +100,7 @@ def create_task(
 
 
 def create_time_tracker(task: Task, user: User) -> TimeTracker:
-    data = {
-        "task": task,
-        "user": user,
-        "task_status": 1
-    }
+    data = {"task": task, "user": user, "task_status": 1}
     return TimeTracker.objects.create(**data)
 
 
@@ -104,56 +109,71 @@ def create_time_tracker(task: Task, user: User) -> TimeTracker:
 def column_name():
     yield COLUMNS_CHOICES[0]
 
+
 @pytest.fixture(scope="session")
 def row_name():
     yield ROWS_CHOICES[0]
+
 
 @pytest.fixture(scope="session")
 def trapeze_500k():
     yield TRAPEZE_500K_AND_50K_CHOICES[0]
 
+
 @pytest.fixture(scope="session")
 def trapeze_200k():
     yield ROMAN_NUMBERS[0]
+
+
 @pytest.fixture(scope="session")
 def trapeze_100k():
     yield TRAPEZE_100K_CHOICES[0]
+
 
 @pytest.fixture(scope="session")
 def trapeze_50k():
     yield TRAPEZE_500K_AND_50K_CHOICES[0]
 
+
 @pytest.fixture(scope="session")
 def trapeze_25k():
     yield TRAPEZE_25K_CHOICES[0]
+
 
 @pytest.fixture(scope="session")
 def trapeze_10k():
     yield TRAPEZE_10K_CHOICES[0]
 
+
 @pytest.fixture(scope="session")
 def map_sheet_1kk_name(row_name, column_name):
     yield f"{row_name}-{column_name}"
+
 
 @pytest.fixture(scope="session")
 def map_sheet_500k_name(map_sheet_1kk_name, trapeze_500k):
     yield f"{map_sheet_1kk_name}-{trapeze_500k}"
 
+
 @pytest.fixture(scope="session")
 def map_sheet_200k_name(map_sheet_1kk_name, trapeze_200k):
     yield f"{map_sheet_1kk_name}-{trapeze_200k}"
+
 
 @pytest.fixture(scope="session")
 def map_sheet_100k_name(map_sheet_1kk_name, trapeze_100k):
     yield f"{map_sheet_1kk_name}-{trapeze_100k}"
 
+
 @pytest.fixture(scope="session")
 def map_sheet_50k_name(map_sheet_100k_name, trapeze_50k):
     yield f"{map_sheet_100k_name}-{trapeze_50k}"
 
+
 @pytest.fixture(scope="session")
 def map_sheet_25k_name(map_sheet_50k_name, trapeze_25k):
     yield f"{map_sheet_50k_name}-{trapeze_25k}"
+
 
 @pytest.fixture(scope="session")
 def map_sheet_10k_name(map_sheet_25k_name, trapeze_10k):
@@ -167,12 +187,29 @@ def gis_department():
     department.save()
     yield department
 
+
 # Auto use
 @pytest.fixture(autouse=True)
 def clear_table():
-    models = (User, Task, Department, TimeTracker, Comment, MapSheet,)
+    models = (
+        User,
+        Task,
+        Department,
+        TimeTracker,
+        Comment,
+        MapSheet,
+    )
     for model in models:
         model.objects.all().delete()
     yield
     for model in models:
         model.objects.all().delete()
+
+
+@pytest.fixture
+def redis_cache_service():
+    with patch("redis.Redis", return_value=Mock()) as mock_redis:
+        cache_service = RedisCacheService(
+            obj=mock_redis, conn_data={"host": "localhost", "port": 6379}
+        )
+        yield cache_service
