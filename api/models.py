@@ -177,7 +177,7 @@ class User(AbstractBaseUser, UpdatedModel, PermissionsMixin):
         if not status and (not request_user.is_admin or request_user.is_head_department):
             raise ValidationError(
                 {
-                    "user": f"Тільки Адміністратор або Керівник віддулу може змінювати виконавця задачі."
+                    "user": "Тільки Адміністратор або Керівник віддулу може змінювати виконавця задачі."
                 }
             )
 

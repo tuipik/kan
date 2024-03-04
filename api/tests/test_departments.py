@@ -1,3 +1,4 @@
+import sys
 import pytest
 from rest_framework.reverse import reverse
 
@@ -69,7 +70,6 @@ def test_add_department_head(api_client, super_user):
 
     api_client.force_authenticate(super_user)
 
-    statuses = [Statuses.EDITING_QUEUE.value, Statuses.EDITING.value]
     department_data = {"name": "test_department"}
     department = api_client.post(reverse("department-list"), data=department_data)
     department_id = department.data.get("data")[0].get("id")

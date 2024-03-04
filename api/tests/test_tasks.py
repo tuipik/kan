@@ -212,7 +212,7 @@ def test_user_already_has_task_in_progress(api_client, super_user, freezer):
     }
 
     task_1 = api_client.post(reverse("task-list"), data=task_data, format="json")
-    task_1_in_progress = api_client.patch(
+    api_client.patch(
         reverse("task-detail", kwargs={"pk": task_1.data.get("data")[0].get("id")}),
         data={"user": user_executant.id, "status": Statuses.EDITING.value},
         format="json",
@@ -237,13 +237,13 @@ def test_create_time_tracker_on_change_task_in_progress(
     user_data = default_user_data(1, roles=[UserRoles.EDITOR.value])
     user, department = create_user_with_department(next(user_data))
     task = create_task(user=user, department=department)
-    a1 = api_client.patch(
+    api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
         data={"user": user.id, "status": Statuses.EDITING.value}, format="json"
     )
     # the second run update with status EDITING is to test, that only 1 TimeTracker can be IN_PROGRESS at one time
     # and should change status to idle first
-    a2 = api_client.patch(
+    api_client.patch(
         reverse("task-detail", kwargs={"pk": task.id}),
         data={"user": user.id, "status": Statuses.EDITING.value}, format="json"
     )
@@ -561,7 +561,7 @@ def test_changing_users_by_changing_task_status(api_client, super_user):
     assert result.data.get("success")
     assert not result.data.get("errors")
     assert result.data.get("data")[0]["status"] == "CORRECTING_QUEUE"
-    assert result.data.get("data")[0]["user"] == None
+    assert result.data.get("data")[0]["user"] is None
 
 
     # (3) Change Task Status to Correcting by User_2 (Corrector) -> OK
@@ -615,9 +615,9 @@ def test_changing_statuses_by_corrector(api_client, super_user):
     user_1, dep_1 = create_user_with_department(next(users_data), dep_name="Dep_1")
 
     user_corrector_data = {
-        "username": f"user_corrector",
-        "first_name": f"default_f_name",
-        "last_name": f"default_l_name",
+        "username": "user_corrector",
+        "first_name": "default_f_name",
+        "last_name": "default_l_name",
         "password": "default_pass",
         "password2": "default_pass",
         "department": "",
@@ -694,7 +694,7 @@ def test_changing_statuses_by_corrector(api_client, super_user):
     assert result.data.get("success")
     assert not result.data.get("errors")
     assert result.data.get("data")[0]["status"] == "TC_QUEUE"
-    assert result.data.get("data")[0]["user"] == None
+    assert result.data.get("data")[0]["user"] is None
 
 @pytest.mark.django_db
 def test_changing_statuses_by_corrector_from_another_dep(api_client, super_user):

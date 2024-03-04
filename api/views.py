@@ -108,7 +108,7 @@ class ResponseModelViewSet(ModelViewSet):
         return Response(self.response_format)
 
     def destroy(self, request, *args, **kwargs):
-        response_data = super(ResponseModelViewSet, self).destroy(
+        super(ResponseModelViewSet, self).destroy(
             request, *args, **kwargs
         )
         self.response_format["data"] = []

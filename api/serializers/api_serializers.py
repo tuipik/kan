@@ -1,5 +1,4 @@
 from datetime import datetime
-import json
 
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -225,7 +224,7 @@ class TaskSerializer(serializers.ModelSerializer):
         department = self.validated_data.get("department")
         if department and department.is_verifier:
             raise ValidationError(
-                {"department": f"Задача не може належати перевіряючему відділу."}
+                {"department": "Задача не може належати перевіряючему відділу."}
             )
 
     def check_user_has_only_one_task_in_progress(self):

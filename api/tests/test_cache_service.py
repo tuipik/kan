@@ -1,7 +1,5 @@
 import pytest
 
-from conftest import redis_cache_service
-
 
 @pytest.mark.django_db
 class TestRedisCache:

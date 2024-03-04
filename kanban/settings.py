@@ -14,16 +14,12 @@ import os
 from pathlib import Path
 
 import businesstimedelta
-import holidays as pyholidays
 import redis
-import rest_framework.renderers
-import drf_standardized_errors
+import rest_framework.renderers  # noqa: F401
+import drf_standardized_errors  # noqa: F401
 from dotenv import load_dotenv
 
-import kanban.tasks
-
 from celery.schedules import crontab
-from holidays import country_holidays
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
