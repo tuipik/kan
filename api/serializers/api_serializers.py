@@ -190,7 +190,6 @@ class TaskSerializer(serializers.ModelSerializer):
     updated = serializers.DateTimeField(
         read_only=True, format=settings.REST_FRAMEWORK["DATETIME_FORMAT"]
     )
-    time_trackers = TimeTrackerSerializer(many=True, read_only=True, source="task_time_trackers")
     map_sheet = MapSheetSerializer(default=None, allow_null=True, read_only=True)
 
     class Meta:
@@ -219,7 +218,6 @@ class TaskSerializer(serializers.ModelSerializer):
             "done",
             "created",
             "updated",
-            "time_trackers",
             "map_sheet",
         ]
 
