@@ -20,10 +20,10 @@ class Cachable(ABC):
         pass
 
 
-class CacheBaseService(Cachable):
+class CacheBaseService:
     def __init__(self, obj, conn_data, *args, **kwargs):
         self._connection = self._get_connection(obj, conn_data)
-        self._connection_error = "[ERROR] Lost connection to cache"
+        self._connection_error = "[ERROR CacheService]"
         self.health_status = False
         self.health_status_time = None
         self.check_timeout_min = 5
@@ -35,6 +35,9 @@ class CacheBaseService(Cachable):
             return conn
         except Exception:
             return None
+
+    def _check_health(self):
+        pass
 
     def check_health(self):
         if (
@@ -48,7 +51,7 @@ class CacheBaseService(Cachable):
         return self.health_status
 
 
-class RedisCacheService(CacheBaseService):
+class RedisCacheService(Cachable, CacheBaseService):
     def _update_health_status(func):
         def wrapper(self, *args, **kwargs):
             try:
@@ -58,7 +61,7 @@ class RedisCacheService(CacheBaseService):
             except Exception as e:
                 self.health_status = False
                 sys.stdout.write(
-                    f"\n[{datetime.now().strftime('%d/%b/%Y %H:%M:%S')}] {self._connection_error}\n"
+                    f"\n[{datetime.now().strftime('%d/%b/%Y %H:%M:%S')}] {self._connection_error} {e}\n"
                 )
                 return None
             finally:
