@@ -1,0 +1,11 @@
+stages:
+  - test
+
+test:
+  stage: test
+  image: python:3.10
+  script:
+    - pip install -r requirements.txt
+    - pytest -vx
+
+  allow_failure: false

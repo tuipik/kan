@@ -9,7 +9,6 @@ from conftest import create_user_with_department, create_task, default_user_data
 from kanban.settings import workday_time, launch_time
 from map_sheet.models import MapSheet
 
-
 @pytest.mark.django_db
 def test_task_name_correct(api_client, super_user):
 
